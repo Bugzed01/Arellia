@@ -1,0 +1,30 @@
+(function(){'use strict';
+  const navToggle=document.querySelector('[data-nav-toggle]');const nav=document.querySelector('.navlinks');
+  if(navToggle&&nav){navToggle.addEventListener('click',()=>{const visible=nav.classList.toggle('mobile-nav-open');navToggle.setAttribute('aria-expanded',String(visible));navToggle.textContent=visible?'×':'☰';});}
+  const search=document.querySelector('[data-wiki-search]');const filters=[...document.querySelectorAll('[data-filter]')];
+  if(search){const cards=[...document.querySelectorAll('[data-wiki-item]')];const empty=document.querySelector('[data-search-empty]');let current='Tous';const normal=s=>(s||'').toLocaleLowerCase('fr').normalize('NFD').replace(/[\u0300-\u036f]/g,'');const refresh=()=>{let found=0;const q=normal(search.value.trim());cards.forEach(card=>{const inCategory=current==='Tous'||card.dataset.category===current;const includes=normal(card.dataset.search).includes(q);const show=inCategory&&includes;card.hidden=!show;if(show)found++;});if(empty)empty.hidden=found!==0;const count=document.querySelector('[data-result-count]');if(count)count.textContent=found+' article'+(found>1?'s':'');};filters.forEach(b=>b.addEventListener('click',()=>{current=b.dataset.filter;filters.forEach(x=>{x.classList.toggle('active',x===b);x.setAttribute('aria-pressed',String(x===b));});refresh();}));search.addEventListener('input',refresh);const q=new URLSearchParams(location.search).get('q');if(q){search.value=q;refresh();}}
+  const atlas=document.querySelector('[data-atlas]');if(atlas){const stage=atlas.querySelector('.atlas-transform');const viewport=atlas.querySelector('.atlas-viewport');const buttons=[...atlas.querySelectorAll('.map-pin')];const details={
+      katoru:{type:'Métropole nordique',title:'Katoru',desc:'Pôle urbain septentrional, aux portes des massifs enneigés et de l’océan boréal. Son identité est liée aux paysages glaciaires et à la recherche.',region:'Nord de l’île',url:'wiki/katoru/'},
+      orelis:{type:'Géographie',title:'Lac d’Orélys',desc:'Grand lac d’origine glaciaire au pied des montagnes. Les eaux de fonte rejoignent progressivement le réseau fluvial central.',region:'Piémont septentrional',url:'wiki/lac-orelys/'},
+      occidian:{type:'Métropole occidentale',title:'Occidian',desc:'Grand port de la côte ouest, établi à l’embouchure du fleuve central. Interface commerciale entre l’océan et l’intérieur du pays.',region:'Littoral occidental',url:'wiki/occidian/'},
+      estrel:{type:'Ville intérieure',title:'Estrel',desc:'Centre urbain de la vallée agricole et industrielle, desservi par le fleuve, les voies ferrées et les grands axes nationaux.',region:'Vallée centrale',url:'wiki/estrel/'},
+      vesone:{type:'Capitale impériale',title:'Vésone',desc:'Siège des institutions de l’Empire constitutionnel. Une capitale d’eau et de pierre, parcourue de canaux, de quais et de ponts.',region:'Centre-est',url:'wiki/vesone/'},
+      orientale:{type:'Métropole méridionale',title:'Orientale',desc:'Importante ville portuaire au sud du pays, à la rencontre des régions arides, de la façade maritime et des grands corridors commerciaux.',region:'Littoral méridional',url:'wiki/orientale/'},
+      solmar:{type:'Paysage',title:'Désert de Solmar',desc:'Désert chaud du sud-ouest, composé de dunes, de plateaux minéraux et de massifs rocheux, autour de la zone volcanique d’Azran.',region:'Sud-ouest',url:'wiki/desert-solmar/'},
+      azran:{type:'Relief volcanique',title:'Volcan d’Azran',desc:'Édifice volcanique actif situé au cœur des étendues arides. La géologie locale contraste fortement avec les régions forestières voisines.',region:'Extrême sud-ouest',url:'wiki/volcan-azran/'},
+      forest:{type:'Écosystème',title:'Forêt d’Arélia',desc:'Immense massif de forêt tropicale humide couvrant une partie de l’est et du centre-sud. Fleuves, marais, canopée et biodiversité.',region:'Est et centre-sud',url:'wiki/foret-arelia/'},
+      eldan:{type:'Haute montagne',title:'Glaciers d’Eldan',desc:'Ensemble glaciaire du massif du Nord. Les versants alimentent les lacs et les torrents qui structurent l’hydrographie de l’île.',region:'Massif du Nord',url:'wiki/massif-nord/'}
+    };
+    let s=1,x=0,y=0,start=null,moved=false;const base=atlas.dataset.base||'./';const detailPanel=atlas.querySelector('[data-map-details]');
+    function apply(){stage.style.transform=`translate(${x}px,${y}px) scale(${s})`;}
+    function select(id){const d=details[id];if(!d)return;buttons.forEach(b=>{const active=b.dataset.place===id;b.classList.toggle('active',active);b.setAttribute('aria-pressed',String(active));});detailPanel.innerHTML=`<span class="type">${d.type}</span><h3>${d.title}</h3><p>${d.desc}</p><div class="detail-divider"></div><span class="meta-title">Situation</span><span class="meta-value">${d.region}</span><div class="detail-foot"><a class="btn btn-gold" href="${base}${d.url}">Consulter la fiche <span aria-hidden="true">↗</span></a></div>`;}
+    buttons.forEach(b=>b.addEventListener('click',()=>select(b.dataset.place)));
+    const zoom=delta=>{s=Math.min(2.7,Math.max(1,s+delta));if(s===1){x=0;y=0;}apply();};
+    atlas.querySelector('[data-zoom-in]').addEventListener('click',()=>zoom(.25));atlas.querySelector('[data-zoom-out]').addEventListener('click',()=>zoom(-.25));atlas.querySelector('[data-reset]').addEventListener('click',()=>{s=1;x=0;y=0;apply();});
+    viewport.addEventListener('wheel',e=>{if(e.ctrlKey||e.metaKey){e.preventDefault();zoom(e.deltaY<0?.18:-.18);}},{passive:false});
+    viewport.addEventListener('pointerdown',e=>{if(e.target.closest('.map-pin'))return;start={px:e.clientX,py:e.clientY,x,y};moved=false;viewport.setPointerCapture(e.pointerId);});
+    viewport.addEventListener('pointermove',e=>{if(!start)return;const dx=e.clientX-start.px,dy=e.clientY-start.py;if(Math.abs(dx)+Math.abs(dy)>3)moved=true;x=start.x+dx;y=start.y+dy;apply();});
+    viewport.addEventListener('pointerup',()=>{start=null;});viewport.addEventListener('pointercancel',()=>{start=null;});
+    select('vesone');
+  }
+})();

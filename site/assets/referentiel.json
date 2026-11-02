@@ -1,0 +1,117 @@
+{
+  "nation": "Empire d’Arélia",
+  "population": 100000000,
+  "superficie_km2": 1000000,
+  "regime": "Empire constitutionnel",
+  "capitale": "Vésone",
+  "articles": [
+    {
+      "slug": "arelia",
+      "title": "Empire d’Arélia",
+      "category": "Empire",
+      "status": "Établi"
+    },
+    {
+      "slug": "vesone",
+      "title": "Vésone",
+      "category": "Villes",
+      "status": "Établi"
+    },
+    {
+      "slug": "occidian",
+      "title": "Occidian",
+      "category": "Villes",
+      "status": "Établi"
+    },
+    {
+      "slug": "orientale",
+      "title": "Orientale",
+      "category": "Villes",
+      "status": "Établi"
+    },
+    {
+      "slug": "katoru",
+      "title": "Katoru",
+      "category": "Villes",
+      "status": "Établi"
+    },
+    {
+      "slug": "estrel",
+      "title": "Estrel",
+      "category": "Villes",
+      "status": "Établi"
+    },
+    {
+      "slug": "massif-nord",
+      "title": "Massif du Nord",
+      "category": "Géographie",
+      "status": "Établi"
+    },
+    {
+      "slug": "lac-orelys",
+      "title": "Lac d’Orélys",
+      "category": "Géographie",
+      "status": "Établi"
+    },
+    {
+      "slug": "reseau-hydrographique",
+      "title": "Réseau hydrographique",
+      "category": "Géographie",
+      "status": "Établi"
+    },
+    {
+      "slug": "foret-arelia",
+      "title": "Forêt d’Arélia",
+      "category": "Nature",
+      "status": "Établi"
+    },
+    {
+      "slug": "desert-solmar",
+      "title": "Désert de Solmar",
+      "category": "Nature",
+      "status": "Établi"
+    },
+    {
+      "slug": "volcan-azran",
+      "title": "Volcan d’Azran",
+      "category": "Nature",
+      "status": "Établi"
+    },
+    {
+      "slug": "littoral-est",
+      "title": "Littoral oriental",
+      "category": "Géographie",
+      "status": "Établi"
+    },
+    {
+      "slug": "empire-constitutionnel",
+      "title": "Empire constitutionnel",
+      "category": "Institutions",
+      "status": "Établi"
+    },
+    {
+      "slug": "chronologie",
+      "title": "Chronologie d’Arélia",
+      "category": "Histoire",
+      "status": "En conception"
+    },
+    {
+      "slug": "administration",
+      "title": "Organisation territoriale",
+      "category": "Institutions",
+      "status": "En conception"
+    },
+    {
+      "slug": "transports",
+      "title": "Réseaux de transport",
+      "category": "Société",
+      "status": "En conception"
+    },
+    {
+      "slug": "yrmoth",
+      "title": "Désert de glace d’Yrmoth",
+      "category": "Nature",
+      "status": "Établi"
+    }
+  ]
+}

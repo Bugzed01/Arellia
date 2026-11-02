@@ -1,0 +1,32 @@
+name: Publier le portail d’Arélia
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: github-pages
+  cancel-in-progress: true
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Récupérer le dépôt
+        uses: actions/checkout@v4
+      - name: Générer les pages depuis le référentiel
+        run: python3 src/build.py
+      - name: Configurer GitHub Pages
+        uses: actions/configure-pages@v5
+      - name: Télécharger le site statique comme artefact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./site
+      - name: Déployer le site
+        id: deployment
+        uses: actions/deploy-pages@v4
