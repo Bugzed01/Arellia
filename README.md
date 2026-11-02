@@ -5,7 +5,7 @@ Site statique en français pour l'univers fictif de l'**Empire constitutionnel d
 ## Ce qui est inclus
 
 - Portail institutionnel responsive (accueil, institutions, territoires, chroniques) ;
-- Atlas interactif (points de carte, fiches de lieux, zoom et déplacement) ;
+- Arélia Maps : carte indépendante zoomable et déplaçable, modes Plan / Relief / Nuit, recherche, filtres, calques, fleuves, routes et voies ferrées, calcul d’itinéraires indicatifs ;
 - Wiki avec **18 articles**, recherche instantanée, filtres thématiques, articles liés et sommaires ;
 - Contenus identifiant les informations **établies** et celles **en conception** ;
 - Déploiement automatique via **GitHub Pages / GitHub Actions**, sans serveur ni base de données ;
@@ -47,13 +47,27 @@ Ajouter les fichiers mis à jour du dossier `site/` au commit pour disposer auss
 
 Ajouter une entrée structurée dans `ARTICLES`, dans `src/content.py`. Le générateur créera automatiquement une fiche et la référencera dans le Wiki. Ajouter au besoin des liens `related` vers d'autres articles existants.
 
-### Mettre à jour la carte
+### Faire évoluer Arélia Maps
 
-- Changer l'illustration `site/assets/arelia-atlas.webp`.
-- Modifier les positions des boutons dans `src/build.py` (`markers`, valeurs en pourcentage).
-- Adapter les données de lieux dans `site/assets/site.js` (`details`).
+La page `site/atlas/` contient **Arélia Maps v0.1**, construite sur un plan de coordonnées propre à l'univers. Le fond cartographique a été créé spécialement pour cette version et n'utilise aucune carte réelle ni aucun service Google.
 
-**Attention :** l'image initiale porte des noms et des chiffres issus de versions précédentes de la création ; seule la fiche canonique du site et `site/assets/referentiel.json` fixent les chiffres courants. Pour une carte géoréférencée ou Unreal Engine, produire ultérieurement une vraie heightmap et une projection cohérente.
+- `site/assets/arelia-map-data.json` : référentiel géographique avec villes, lieux naturels, routes, voies ferrées, fleuves, canaux de Vésone, littoral et coordonnées. Ces coordonnées sont **fictives**, elles ne correspondent pas à des latitudes et longitudes terrestres.
+- `site/assets/arelia-terrain.webp` et `arelia-plan.webp` : fonds de cartes pré-générés (mode Nuit calculé dans le navigateur).
+- `site/assets/arelia-maps.js` et `arelia-maps.css` : application interactive autonome, sans API payante ni dépendance réseau.
+- `src/maps/atlas_markup.py` : source HTML de la page. Le script `src/build.py` la régénère à chaque publication ; ne pas modifier seulement le HTML généré.
+- `src/maps/validate.py` : vérification du référentiel, intégrée à GitHub Actions.
+- `src/maps/generate.py` : génération *optionnelle* des fonds et données géographiques. Requiert `numpy`, `Pillow`, `scipy` et `shapely` sur un poste de travail. **Ne pas lancer** ce générateur par défaut : une nouvelle exécution recrée les paysages et écrase la version géographique en vigueur.
+
+Pour valider avant publication :
+
+```bash
+python3 src/build.py
+python3 src/maps/validate.py
+```
+
+La superficie continentale est normalisée à **1 000 000 km²**. C'est une convention de l'atlas, pas un relevé topographique. Les routes et la grille de rues de Vésone sont des **propositions de géographie fictive** ; les itinéraires calculés sont approximatifs et ne fournissent ni durée, ni trafic, ni navigation routière réelle.
+
+Pour une vraie carte de niveau urbain, la prochaine étape consiste à découper le monde en tuiles vectorielles et à détailler les réseaux de voirie par secteurs. Les données actuelles ne constituent ni une heightmap jouable ni une base SIG cadastrale et ne peuvent pas être directement importées comme terrain Unreal Engine.
 
 ## Données de référence
 
@@ -70,13 +84,13 @@ Ces données peuvent aussi être lues dans `site/assets/referentiel.json` pour d
 ## Limitations de cette première version
 
 - Wiki consultable, **pas de modification collaborative directe** ni comptes utilisateurs ; contributions possibles via GitHub.
-- Carte artistique interactive, **pas de système GIS** ni de coordonnées réelles.
+- Atlas local interactif, **pas de système GIS** officiel ni de coordonnées terrestres réelles.
 - Les textes institutionnels non décidés sont explicitement marqués comme « en conception ».
 - Il n'y a pas de site public publié automatiquement par l'archive ZIP : la mise en ligne nécessite votre propre dépôt GitHub.
 
 ## Technologies
 
-HTML5, CSS3, JavaScript natif, Python standard (générateur facultatif). Pas de dépendances npm, pas de backend. La première version privilégie une publication directe sur GitHub Pages plutôt qu'un framework nécessitant une chaîne de compilation.
+HTML5 Canvas, CSS3, JavaScript natif, Python standard pour la génération du portail (le générateur de terrain est séparé et facultatif). Pas de dépendances npm, pas de backend. La première version privilégie une publication directe sur GitHub Pages plutôt qu'un framework nécessitant une chaîne de compilation.
 
 ## Crédits
 
