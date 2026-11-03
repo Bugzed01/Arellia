@@ -325,12 +325,13 @@
  const CITY_TILE=8,cityTileCache=new Map(),CITY_CACHE_LIMIT=180;
  const baseBuildingCenters=new WeakMap();
  function cityTile(city,i,j){
-  const key=city.id+':'+i+','+j;
+  const cityId=city.id||city.meta?.id||'vesone';
+  const key=cityId+':'+i+','+j;
   if(cityTileCache.has(key)){const obj=cityTileCache.get(key);cityTileCache.delete(key);cityTileCache.set(key,obj);return obj;}
   const ox=i*CITY_TILE,oy=j*CITY_TILE,center=[ox+4,oy+4];
   const candidates=[[ox,oy],[ox+8,oy],[ox+8,oy+8],[ox,oy+8],center];
   if(!candidates.some(p=>inside(p,city.outline)))return null;
-  const rand=rng((Math.imul(i+2048,1572869)^Math.imul(j+2048,991948530)^(city.id.length*29833)^SEED)>>>0);
+  const rand=rng((Math.imul(i+2048,1572869)^Math.imul(j+2048,991948530)^(cityId.length*29833)^SEED)>>>0);
   const water=[...(city.water||[]),...(city.canals||[])].filter(r=>r.points.some(p=>p[0]>=ox-15&&p[0]<=ox+23&&p[1]>=oy-15&&p[1]<=oy+23));
   const crossesCell=(route,margin=5)=>route.points.slice(1).some((p,k)=>{
     const q=route.points[k];
@@ -356,7 +357,7 @@
    }
    return best;
   }
-  const maxCount=city.id==='vesone'?74:92;
+  const maxCount=cityId==='vesone'?74:92;
   for(let attempt=0;attempt<380&&houses.length<maxCount;attempt++){
     const x=ox+.25+rand()*7.5,y=oy+.25+rand()*7.5,p=[x,y];
     if(!inside(p,city.outline))continue;
@@ -371,10 +372,10 @@
     const poly=[[-width,-height],[width,-height],[width,height],[-width,height]].map(([u,v])=>point(x+u*Math.cos(angle)-v*Math.sin(angle),y+u*Math.sin(angle)+v*Math.cos(angle)));
     if(poly.some(q=>!inside(q,city.outline)||waterConflict(q)||excluded.some(k=>inside(q,k.polygon))))continue;
     accepted.push(p);
-    const roofs=city.id==='vesone'?['#c6b4a0','#b7ad98','#d8c3a8']:city.theme==='baie'?['#e5c8ad','#d2b9a2','#e7d1b2']:city.theme==='nordique'?['#bac7c5','#c6bcb0','#aebbbb']:['#d3c4a9','#c3b8a4','#b4c2b9'];
+    const roofs=cityId==='vesone'?['#c6b4a0','#b7ad98','#d8c3a8']:city.theme==='baie'?['#e5c8ad','#d2b9a2','#e7d1b2']:city.theme==='nordique'?['#bac7c5','#c6bcb0','#aebbbb']:['#d3c4a9','#c3b8a4','#b4c2b9'];
     houses.push({polygon:poly,roof:roofs[Math.floor(rand()*roofs.length)]});
   }
-  const result={cityId:city.id,i,j,buildings:houses,status:'procédural non canonique'};
+  const result={cityId,i,j,buildings:houses,status:'procédural non canonique'};
   cityTileCache.set(key,result);
   if(cityTileCache.size>CITY_CACHE_LIMIT)cityTileCache.delete(cityTileCache.keys().next().value);
   return result;
