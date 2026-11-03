@@ -24,6 +24,17 @@
  function schedule(){if(!state.raf)state.raf=requestAnimationFrame(()=>{state.raf=0;draw()});}
  function polyline(points,color,width,dash=null,halo=false){if(!points||!points.length)return;ctx.beginPath();points.forEach(([x,y],i)=>i?ctx.lineTo(x,y):ctx.moveTo(x,y));ctx.lineWidth=width/state.scale;ctx.lineCap='round';ctx.lineJoin='round';if(halo){ctx.strokeStyle='rgba(255,255,255,.75)';ctx.lineWidth=(width+2)/state.scale;ctx.stroke();}ctx.strokeStyle=color;ctx.lineWidth=width/state.scale;ctx.setLineDash(dash?dash.map(n=>n/state.scale):[]);ctx.stroke();ctx.setLineDash([])}
 
+ // Le lac est une découpe dans le continent ; les îlots sont ajoutés comme terres.
+ function clipLand(){
+   const rings=[state.data.coastline,...(state.data.islands||[]),state.data.lake].filter(p=>p?.length>=3);
+   ctx.beginPath();
+   for(const ring of rings){
+     ctx.moveTo(ring[0][0],ring[0][1]);
+     for(const p of ring.slice(1))ctx.lineTo(p[0],p[1]);
+     ctx.closePath();
+   }
+   ctx.clip('evenodd');
+ }
  // Couverture nationale : milieux et réseaux, rendus sur toute l'île selon l'échelle.
  function drawNationalLand(){
    const world=state.world;if(!world)return;
@@ -40,7 +51,7 @@
      ctx.closePath();
    };
    ctx.save();ctx.globalAlpha*=carto.fade(level,2.7,7);
-   polygon(state.data.coastline);ctx.clip();
+   clipLand();
    for(const patch of world.land.regions){
      if(!patch.polygon.some(pt=>on(pt[0],pt[1],75)))continue;
      polygon(patch.polygon);
@@ -101,7 +112,7 @@
      ctx.setLineDash(dash);ctx.stroke();ctx.setLineDash([]);
    };
    ctx.save();ctx.globalAlpha*=carto.fade(level,23,35);
-   patch(state.data.coastline);ctx.clip();
+   clipLand();
    for(let j=j0;j<=j1;j++)for(let i=i0;i<=i1;i++){
      const tile=worldAPI.localTile(state.data,i,j);
      if(!tile)continue;
@@ -155,9 +166,7 @@
      ctx.setLineDash(dash.map(x=>x/state.scale));ctx.stroke();ctx.setLineDash([]);
    };
    ctx.save();
-   ctx.beginPath();ctx.moveTo(state.data.coastline[0][0],state.data.coastline[0][1]);
-   for(const pt of state.data.coastline.slice(1))ctx.lineTo(pt[0],pt[1]);
-   ctx.closePath();ctx.clip();
+   clipLand();
    if(state.layers.water&&level>=7){
      for(const creek of world.streams){
        if(!visible(creek.points))continue;
@@ -183,7 +192,7 @@
    if(!world||level<16)return;
    const [w,h]=getDim(),tl=toWorld(0,0),br=toWorld(w,h);
    const show=town=>town.x+town.radius>=tl[0]-5&&town.x-town.radius<=br[0]+5&&town.y+town.radius>=tl[1]-5&&town.y-town.radius<=br[1]+5;
-   ctx.save();ctx.globalAlpha*=carto.fade(level,16,23);
+   ctx.save();clipLand();ctx.globalAlpha*=carto.fade(level,16,23);
    for(const town of world.settlements){
      if(!show(town))continue;
      const plan=worldAPI.townPlan(town);
