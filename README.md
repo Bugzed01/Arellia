@@ -125,3 +125,14 @@ La vue `/atlas/?vue=metropole` permet de choisir un départ et une arrivée parm
 - Les trajets sont des **schémas indicatifs**, pas une navigation Google Maps : pas de feux, vitesses, circulation, sens uniques, rues de quartier ni horaires. Les kilomètres dérivent de la convention d'échelle de l'atlas.
 - Les tests `src/maps/route_validate.cjs` vérifient les 56 couples orientés de lieux distincts en route et en train, et l'intégration est contrôlée à chaque publication GitHub Pages.
 - Le trajet vers « Vésone » aboutit à un **accès du centre urbain**, pas à l'implantation exacte d'un monument. La modélisation du relief hydrologique et des risques d'inondation reste à faire : aucune carte de risques n'est inférée de ces données.
+
+## Arélia Maps 0.9 — relief métropolitain et hydrographie
+
+Dans la vue **Métropole**, le mode **Relief** affiche des courbes topographiques fictives, issues d’une grille de 43 × 35 valeurs d'**indice relatif (0 à 100), et non d’altitudes en mètres**. Les couches « Courbes de relief local » et « Terrains bas (illustratifs) » peuvent être activées indépendamment ; un indicateur donne l’indice de terrain sous le curseur.
+
+- Cinq cours d’eau complémentaires sont raccordés au réseau de canaux existant, avec des points de jonction explicitement enregistrés.
+- Neuf franchissements sont localisés géométriquement aux intersections des axes routiers et de ces cours d’eau.
+- La géographie source est versionnée dans `src/maps/metro_overlay.json`, le portail étant reconstruit via `src/maps/vesone.py`.
+- Les contrôles automatiques vérifient les 1 505 valeurs du modèle, les connexions hydrologiques et les positions de chaque franchissement.
+
+**Limite essentielle :** ni l’indice de relief ni les secteurs bas ne représentent de vraies altitudes, des niveaux d’eau, des débits ou une exposition aux crues. Ce n’est pas une carte de risque d’inondation. Les axes routiers et les ponts restent des propositions non canoniques.

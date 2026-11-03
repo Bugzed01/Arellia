@@ -49,7 +49,7 @@ for name in ['arelia-terrain.webp','arelia-plan.webp','arelia-maps.css','arelia-
 print(f"Carte valide : {len(data['places'])} lieux, {len(city['places'])} lieux urbains, {len(city['streets'])} rues, {len(city['canals'])} canaux, {len(city['bridges'])} ponts; 1 M km².")
 
 # Organic urban atlas v0.3
-assert city['meta']['version']=='0.8.0'
+assert city['meta']['version']=='0.9.0'
 assert len(city['blocks'])>=200 and len(city['buildings'])>=600
 assert len(city['streets'])>=10 and len(city['canals'])>=5 and len(city['bridges'])>=10
 assert not any(s['id'].startswith(('rue-lat','rue-long')) for s in city['streets'])
@@ -68,7 +68,7 @@ assert all(len(r['points'])>=3 for r in city['transit_lines']+city['expressways'
 
 # V0.6: satellite centres, regional roads and express rail links.
 metro=city['metropolitan']
-assert metro['version']=='0.8.0'
+assert metro['version']=='0.9.0'
 assert len(metro['satellites'])==7
 assert len(metro['neighborhoods'])>=140
 assert len(metro['green_corridors'])>=4
@@ -103,3 +103,50 @@ print('Grand Vésone v0.7 : raccordements, gares alignées et tissus suburbains 
 assert metro['version']==city['meta']['version']
 assert (root/'site/assets/arelia-routing.js').is_file()
 assert (root/'src/maps/route_validate.cjs').is_file()
+
+# V0.9 — topography is relative, streams must connect and road crossings must be geometric.
+terrain=metro['terrain']
+assert terrain['version']=='0.9.0'
+grid=terrain['grid']
+assert grid['cols']>=40 and grid['rows']>=30
+assert len(grid['values'])==grid['cols']*grid['rows']
+assert all(isinstance(e,(float,int)) and math.isfinite(e) and 0<=e<=100 for e in grid['values'])
+assert max(grid['values'])-min(grid['values'])>30
+assert len(terrain['contours'])>=6
+assert len(terrain['waterways'])==5 and len(terrain['connections'])==5
+assert len(terrain['lowlands'])==5 and len(terrain['crossings'])>=5
+left,top=grid['origin']
+right=left+grid['step']*(grid['cols']-1)
+bottom=top+grid['step']*(grid['rows']-1)
+for contour in terrain['contours']:
+    assert contour['segments']
+    for seg in contour['segments']:
+        assert len(seg)==2
+        assert all(left-.01<=x<=right+.01 and top-.01<=y<=bottom+.01 for x,y in seg)
+streams={s['id']:s for s in terrain['waterways']}
+channels={s['id']:s for s in city['canals']}
+for stream in streams.values():
+    assert len(stream['points'])>=4
+    assert all(left<=x<=right and top<=y<=bottom for x,y in stream['points'])
+for connector in terrain['connections']:
+    source=streams[connector['stream_id']]
+    target=streams.get(connector['target_id']) or channels.get(connector['target_id'])
+    assert target is not None
+    assert any(x in target['points'] for x in [source['points'][0],source['points'][-1]])
+def dist_segment(point,a,b):
+    ux,uy=b[0]-a[0],b[1]-a[1]
+    q=ux*ux+uy*uy
+    t=max(0,min(1,((point[0]-a[0])*ux+(point[1]-a[1])*uy)/q)) if q else 0
+    return math.hypot(point[0]-a[0]-t*ux,point[1]-a[1]-t*uy)
+def dist_path(point,vertices):
+    return min(dist_segment(point,a,b) for a,b in zip(vertices,vertices[1:]))
+roads={r['id']:r for r in metro['roads']}
+for bridge in terrain['crossings']:
+    point=(bridge['x'],bridge['y'])
+    assert bridge['road_id'] in roads
+    assert bridge['waterway_id'] in streams
+    assert dist_path(point,roads[bridge['road_id']]['points'])<.015
+    assert dist_path(point,streams[bridge['waterway_id']]['points'])<.015
+    assert bridge['kind']=='franchissement-indicatif'
+assert 'PAS une carte d’inondation' in terrain['disclaimer']
+print('Relief relatif et hydrographie v0.9 :',len(terrain['waterways']),'cours d’eau,',len(terrain['crossings']),'franchissements.')

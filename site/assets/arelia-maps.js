@@ -5,7 +5,7 @@
  const host=$('maps-canvas-area');if(!host)return;
  const canvas=$('maps-canvas'),ctx=canvas.getContext('2d',{alpha:false});
  const results=$('maps-results'),detail=$('maps-detail'),markers=$('maps-markers');
- const state={data:null,images:{},style:'plan',layers:{roads:true,rail:true,water:true,places:true,labels:true,urban:true,canals:true,zones:true,transit:true,metro:true,metroRail:true},category:'all',query:'',selected:null,city:null,cityMode:false,metroMode:false,scale:1,baseScale:1,tx:0,ty:0,route:null,metroRoute:null,roadGraph:null,railGraph:null,drag:null,raf:0,dpr:1};
+ const state={data:null,images:{},style:'plan',layers:{roads:true,rail:true,water:true,places:true,labels:true,urban:true,canals:true,zones:true,transit:true,metro:true,metroRail:true,relief:false,lowlands:false},category:'all',query:'',selected:null,city:null,cityMode:false,metroMode:false,scale:1,baseScale:1,tx:0,ty:0,route:null,metroRoute:null,roadGraph:null,railGraph:null,drag:null,raf:0,dpr:1};
  const terrain=new Image(),plan=new Image();terrain.src='../assets/arelia-terrain.webp';plan.src='../assets/arelia-plan.webp';state.images={terrain,plan};
  const coord=([x,y])=>[x*state.scale+state.tx,y*state.scale+state.ty];
  const num=(n)=>Math.round(n).toLocaleString('fr-FR');
@@ -41,6 +41,28 @@
     const fill=(pts,color,stroke=null)=>{path(pts,true);ctx.fillStyle=color;ctx.fill();if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=.2;ctx.stroke()}};
     const line=(pts,color,width,dash=[])=>{path(pts);ctx.strokeStyle=color;ctx.lineWidth=width;ctx.lineCap='round';ctx.lineJoin='round';ctx.setLineDash(dash);ctx.stroke();ctx.setLineDash([])};
     ctx.save();
+    const terrainData=metro.terrain;
+    if(terrainData && (state.style==='terrain'||state.layers.relief)){
+      const grid=terrainData.grid,origin=grid.origin,step=grid.step,cols=grid.cols,rows=grid.rows;
+      for(let j=0;j<rows-1;j++)for(let i=0;i<cols-1;i++){
+        const idx=j*cols+i;
+        const e=(grid.values[idx]+grid.values[idx+1]+grid.values[idx+cols]+grid.values[idx+cols+1])*.25;
+        let color;
+        if(night)color=e<25?'rgba(44,86,80,.55)':e<45?'rgba(73,86,79,.55)':e<62?'rgba(111,104,87,.54)':'rgba(133,120,99,.55)';
+        else color=e<20?'rgba(119,172,142,.60)':e<32?'rgba(172,194,151,.58)':e<44?'rgba(200,194,145,.58)':e<56?'rgba(199,172,135,.56)':e<70?'rgba(173,151,122,.58)':'rgba(158,140,120,.58)';
+        ctx.fillStyle=color;ctx.fillRect(origin[0]+i*step,origin[1]+j*step,step+.025,step+.025);
+      }
+      ctx.save();ctx.lineWidth=level>=14?.18:.27;ctx.strokeStyle=night?'rgba(231,215,188,.36)':'rgba(108,90,67,.38)';
+      for(const contour of terrainData.contours||[]){
+        ctx.beginPath();
+        for(const [a,b] of contour.segments){ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);}
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+    if(terrainData && state.layers.lowlands){
+      for(const land of terrainData.lowlands||[])fill(land.polygon,night?'rgba(80,144,151,.30)':'rgba(90,173,178,.28)');
+    }
     if(state.layers.metro){
       for(const green of metro.green_corridors)fill(green.polygon,night?'rgba(57,105,78,.52)':'rgba(110,149,112,.52)');
       for(const sat of metro.satellites)fill(sat.footprint,night?'#697472':'#d9d3bb',night?'#6f7777':'#bcad91');
@@ -49,11 +71,26 @@
       for(const greenSpace of metro.landuse_patches||[])fill(greenSpace.polygon,greenSpace.kind==='logistique'?(night?'#6d7778':'#c3c8c3'):(night?'#416557':'#a2c1a3'));
       if(level>=6)for(const street of metro.local_streets||[]){line(street.points,night?'#49555c':'#b0aaa0',street.class==='avenue'?1.25:.75);line(street.points,night?'#e4dfd0':'#fcf8ed',street.class==='avenue'?.87:.48)}
 
+      // Riverbeds precede roads; mapped crossings receive their own bridge decks.
+      if(terrainData && state.layers.water){
+        for(const waterway of terrainData.waterways){
+          line(waterway.points,night?'#a4bbb4':'#efe6d5',waterway.width+.9);
+          line(waterway.points,night?'#226278':'#4a9bb0',waterway.width);
+        }
+      }
       for(const road of metro.roads){const main=road.kind==='rocade';line(road.points,night?'#465363':'#a99c8b',main?2.4:1.9);line(road.points,night?'#e1c8a7':'#fbf6e7',main?1.55:1.1,road.kind==='contournement'?[3,2]:[])}
     }
     if(state.layers.metroRail){
       for(const track of metro.regional_rail){line(track.points,night?'#283b46':'rgba(252,249,234,.95)',2);line(track.points,track.color,.92,[2.2,1.1])}
       if(level>=7)for(const station of metro.rail_stations||[]){ctx.beginPath();ctx.arc(station.x,station.y,station.kind==='interchange'?1.7:1.35,0,Math.PI*2);ctx.fillStyle=night?'#e4e6e7':'white';ctx.fill();ctx.lineWidth=.56;ctx.strokeStyle=station.kind==='interchange'?'#9f714d':'#536c82';ctx.stroke()}
+    }
+    if(terrainData && state.layers.water && state.layers.metro){
+      for(const bridge of terrainData.crossings){
+        ctx.save();ctx.translate(bridge.x,bridge.y);ctx.rotate(bridge.angle);
+        ctx.fillStyle=night?'#56575d':'#9b8c76';ctx.fillRect(-bridge.span*.5,-bridge.width*.68,bridge.span,bridge.width*1.36);
+        ctx.fillStyle=night?'#d3ccba':'#f3e6c7';ctx.fillRect(-bridge.span*.5,-bridge.width*.5,bridge.span,bridge.width);
+        ctx.restore();
+      }
     }
     ctx.restore();
   }
@@ -292,6 +329,21 @@
   for(const b of document.querySelectorAll('[data-style]'))b.onclick=()=>{state.style=b.dataset.style;document.querySelectorAll('[data-style]').forEach(v=>v.classList.toggle('selected',v===b));schedule()};
   const lp=$('maps-layers');$('maps-layers-toggle').onclick=()=>{lp.hidden=!lp.hidden;$('maps-layers-toggle').setAttribute('aria-expanded',String(!lp.hidden))};document.addEventListener('pointerdown',e=>{if(!lp.hidden&&!lp.contains(e.target)&&!$('maps-layers-toggle').contains(e.target)){$('maps-layers-toggle').setAttribute('aria-expanded','false');lp.hidden=true}});
   for(const checkbox of document.querySelectorAll('[data-layer]'))checkbox.onchange=()=>{state.layers[checkbox.dataset.layer]=checkbox.checked;schedule()};
+  const elevationReadout=$('maps-altitude-readout');
+  area.addEventListener('pointermove',e=>{
+    const terrain=state.city?.metropolitan?.terrain;
+    if(!terrain||!state.cityMode||!(state.layers.relief||state.style==='terrain')){
+      elevationReadout.hidden=true;return;
+    }
+    const rect=area.getBoundingClientRect(),pt=toWorld(e.clientX-rect.left,e.clientY-rect.top),g=terrain.grid;
+    const x=(pt[0]-g.origin[0])/g.step,y=(pt[1]-g.origin[1])/g.step;
+    if(x<0||y<0||x>=g.cols-1||y>=g.rows-1){elevationReadout.hidden=true;return;}
+    const i=Math.floor(x),j=Math.floor(y),tx=x-i,ty=y-j,at=(ii,jj)=>g.values[jj*g.cols+ii];
+    const value=at(i,j)*(1-tx)*(1-ty)+at(i+1,j)*tx*(1-ty)+at(i,j+1)*(1-tx)*ty+at(i+1,j+1)*tx*ty;
+    elevationReadout.textContent='Relief fictif · indice '+Math.round(value)+'/100 (non métrique)';
+    elevationReadout.hidden=false;
+  });
+  area.addEventListener('pointerleave',()=>{elevationReadout.hidden=true});
   $('maps-search').oninput=e=>{state.query=e.target.value;listItems();schedule()};for(const b of document.querySelectorAll('[data-cat]'))b.onclick=()=>{state.category=b.dataset.cat;document.querySelectorAll('[data-cat]').forEach(t=>t.classList.toggle('is-active',t===b));listItems();schedule()};
   $('maps-route').onclick=route;$('maps-route-clear').onclick=()=>{state.route=null;detail.classList.remove('has-detail');detail.innerHTML='<div class="maps-detail-idle"><span class="maps-overline">CARTE GÉOGRAPHIQUE</span><h2>Itinéraire effacé.</h2><p>Sélectionnez une destination ou un autre trajet.</p></div>';schedule()};
   window.addEventListener('resize',()=>{const [w,h]=getDim();const ox=(w/2-state.tx)/state.scale,oy=(h/2-state.ty)/state.scale;const prev=state.baseScale;state.baseScale=Math.min(w/1500,h/1400)*.94;state.scale*=state.baseScale/(prev||state.baseScale);state.tx=w/2-ox*state.scale;state.ty=h/2-oy*state.scale;clamp();resize()});

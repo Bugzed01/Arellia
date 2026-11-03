@@ -41,3 +41,8 @@
 .maps-metro-routing select#maps-metro-mode{max-width:105px}
 .maps-metro-routing .maps-primary-action,.maps-metro-routing .maps-secondary-action{padding:8px 10px;font-size:11px}
 @media(max-width:700px){.maps-city-mode.maps-metro-mode .maps-bottom-bar{min-height:92px}.maps-metro-routing select{max-width:30vw!important;font-size:10px;padding:6px 3px}.maps-metro-routing select#maps-metro-mode{max-width:22vw!important}.maps-metro-routing .maps-primary-action,.maps-metro-routing .maps-secondary-action{font-size:10px;padding:7px 8px}}
+
+/* v0.9 — indice de relief fictif, distinct des cotes altimétriques réelles */
+.maps-altitude-readout{position:absolute;z-index:6;left:186px;bottom:25px;max-width:245px;padding:7px 9px;background:#f6f3e9eb;border:1px solid #d4c9b1;border-radius:7px;font:700 10px 'DM Sans',Arial,sans-serif;color:#3c5a58;pointer-events:none}
+.maps-altitude-readout[hidden]{display:none!important}
+@media(max-width:700px){.maps-altitude-readout{left:10px;bottom:74px;font-size:9px;max-width:205px}}
