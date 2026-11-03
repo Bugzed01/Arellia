@@ -11,6 +11,7 @@ assert.ok(w.land.forests.length>300,'Pas assez de points forestiers');
 assert.ok(w.land.terrainLines.length>=6,'Relief national insuffisant');
 assert.ok(w.settlements.length>=500,'Couverture des localités insuffisante');
 assert.equal(new Set(w.settlements.map(s=>s.id)).size,w.settlements.length);
+assert.equal(new Set(w.settlements.map(s=>s.name)).size,w.settlements.length,'Toponymes répétés');
 assert.ok(w.arterials.length>=7,'Réseau régional insuffisant');
 assert.ok(w.feeders.length>=500,'Dessertes territoriales insuffisantes');
 assert.ok(w.streams.length>=8,'Hydrographie secondaire insuffisante');
@@ -21,7 +22,7 @@ for(const id of major){
  assert.ok(w.cityPlans[id].streets.length>=70,id+' rues absentes');
 }
 for(const town of w.settlements){
- assert.ok(worldModule.inside([town.x,town.y],geo.coastline),town.id+' hors terre');
+ assert.ok(worldModule.isLand([town.x,town.y],geo),town.id+' sur eau ou hors terre');
  assert.ok(town.x>=0&&town.x<=1500&&town.y>=0&&town.y<=1400);
  assert.ok(Number.isFinite(worldModule.height(town.x,town.y)));
 }
@@ -59,3 +60,12 @@ assert.ok(vesoneHouses>=5,'Bâtiments urbains complémentaires absents de Véson
 assert.ok(cityHouses>=10,'Bâtiments urbains complémentaires absents de Katoru');
 assert.deepEqual(worldModule.cityTile(cityTest,61,42),worldModule.cityTile(cityTest,61,42));
 console.log('Tuiles urbaines fines : '+vesoneHouses+' bâtiments autour de Vésone ; '+cityHouses+' près de Katoru.');
+
+for(const polygon of geo.islands){
+ const mean=polygon.reduce((a,p)=>[a[0]+p[0]/polygon.length,a[1]+p[1]/polygon.length],[0,0]);
+ assert.ok(worldModule.isLand(mean,geo),'Îlot non reconnu comme terre émergée');
+}
+if(geo.lake?.length){
+ const x=geo.lake.reduce((v,p)=>v+p[0]/geo.lake.length,0),y=geo.lake.reduce((v,p)=>v+p[1]/geo.lake.length,0);
+ assert.ok(!worldModule.isLand([x,y],geo),'Le lac Orélys doit rester exclu des cellules terrestres');
+}

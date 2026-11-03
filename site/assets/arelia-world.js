@@ -20,6 +20,7 @@
   }
   return result;
  }
+ const isLand=(p,geo)=>(inside(p,geo.coastline)||(geo.islands||[]).some(poly=>inside(p,poly)))&&!inside(p,geo.lake||[]);
  const point=(x,y)=>[round(x),round(y)];
  const distance=(a,b)=>Math.hypot(a[0]-b[0],a[1]-b[1]);
  function segmentDistance(p,a,b){
@@ -68,25 +69,25 @@
   const colors={glacier:'#c9e1e8',roche:'#969c95',coniferes:'#719383',foret:'#83a987','foret-humide':'#447b6d',marais:'#81afa0',desert:'#d7b47d',steppe:'#bcad82',cultures:'#b5ba82',prairie:'#a5ba86'};
   // Îlots de végétation et de sols irréguliers : pas de quadrillage rectiligne.
   for(let i=0;i<1320;i++){
-   const x=185+rand()*1150,y=130+rand()*1050;
-   if(!inside([x,y],geo.coastline))continue;
+   const x=125+rand()*1300,y=115+rand()*1100;
+   if(!isLand([x,y],geo))continue;
    const type=biome(x,y),rx=10+rand()*32,ry=6+rand()*21;
    regions.push({type,color:colors[type],polygon:irregular(x,y,rx,ry,13,i+12,rand()*3)});
   }
   // Champs visibles aux échelles territoriales et locales.
   for(let i=0;i<3600;i++){
-   const x=190+rand()*1120,y=155+rand()*1025;
-   if(!inside([x,y],geo.coastline))continue;
+   const x=125+rand()*1300,y=115+rand()*1100;
+   if(!isLand([x,y],geo))continue;
    const type=biome(x,y);
    if(type!=='cultures'&&type!=='prairie'&&type!=='steppe')continue;
    const angle=rand()*1.5-.75,w=3+rand()*9,h=2+rand()*7;
    const poly=[[-w,-h],[w,-h],[w*.85,h],[-w*.9,h]];
    const rotated=poly.map(([xx,yy])=>point(x+xx*Math.cos(angle)-yy*Math.sin(angle),y+xx*Math.sin(angle)+yy*Math.cos(angle)));
-   if(rotated.every(q=>inside(q,geo.coastline)))fields.push({polygon:rotated,color:type==='cultures'?(rand()>.5?'#c6bf8d':'#aebc80'):type==='prairie'?'#a7bd8d':'#c8b58b'});
+   if(rotated.every(q=>isLand(q,geo)))fields.push({polygon:rotated,color:type==='cultures'?(rand()>.5?'#c6bf8d':'#aebc80'):type==='prairie'?'#a7bd8d':'#c8b58b'});
   }
   for(let i=0;i<5200;i++){
-   const x=190+rand()*1120,y=155+rand()*1030;
-   if(!inside([x,y],geo.coastline))continue;
+   const x=125+rand()*1300,y=115+rand()*1120;
+   if(!isLand([x,y],geo))continue;
    const type=biome(x,y);
    if(type==='foret'||type==='coniferes'||type==='foret-humide')forests.push({x:round(x),y:round(y),size:round(.25+.52*rand()),type});
   }
@@ -142,21 +143,28 @@
   return best;
  }
  function makeSettlements(geo,arterials){
-  const rand=rng(SEED+229),settlements=[],feeders=[];
+  const rand=rng(SEED+229),settlements=[],feeders=[],usedNames=new Set();
   const highways=geo.roads.concat(arterials);
   const anchors=geo.places.filter(p=>['capitale','metropole','ville'].includes(p.category));
   const roots=['Bel','Mont','Val','Riv','Or','Ser','Sol','Kar','Eli','Hal','Tor','Ner','Cé','Lys','Est','Ar','Nami','Ros','Ver','Cal','Tess'];
   const endings=['ac','enne','court','val','rive','mont','el','ière','ène','or','ois','elle','and','os','ens','erie','ent','onne','an'];
   for(let attempt=0;attempt<24000&&settlements.length<790;attempt++){
-    const x=174+rand()*1162,y=145+rand()*1082,pt=point(x,y);
-    if(!inside(pt,geo.coastline))continue;
+    const x=125+rand()*1300,y=145+rand()*1082,pt=point(x,y);
+    if(!isLand(pt,geo))continue;
     const type=biome(x,y),h=height(x,y);
     if(h>79||type==='glacier')continue;
     if(anchors.some(p=>distance(pt,[p.x,p.y])<15))continue;
     if(settlements.some(t=>Math.abs(x-t.x)<8&&Math.abs(y-t.y)<8&&distance(pt,[t.x,t.y])<13))continue;
     const closest=closestOnRoad(pt,highways);
     if(!closest||closest.distance>190)continue;
-    const idx=settlements.length,name=roots[(idx*7+Math.floor(rand()*11))%roots.length]+endings[(idx*13+Math.floor(rand()*endings.length))%endings.length];
+    const idx=settlements.length,stem=roots[(idx*7+Math.floor(rand()*11))%roots.length]+endings[(idx*13+Math.floor(rand()*endings.length))%endings.length];
+    let name=stem;
+    if(usedNames.has(name)){
+      const modifiers=['Haut','Bas','Grand','Petit','Vieux','Nouveau','Rive','Mont'];
+      name=modifiers[idx%modifiers.length]+'-'+stem;
+    }
+    if(usedNames.has(name))name=name+'-'+String(idx+1).padStart(3,'0');
+    usedNames.add(name);
     const large=idx%13===0,medium=idx%5===0,radius=large?11+rand()*4:medium?6+rand()*3:3+rand()*3;
     const pop=large?'centre local':medium?'bourg':'village';
     const item={id:'localite-'+String(idx+1).padStart(4,'0'),name,x:round(x),y:round(y),radius:round(radius),kind:pop,biome:type,seed:SEED+idx*917,category:'bourg',type:'Localité fictive proposée',wiki:'arelia',
@@ -178,7 +186,7 @@
       const len=distance(prev,next),nx=(next[1]-prev[1])/len*side,ny=-(next[0]-prev[0])/len*side;
       const reach=18+rand()*37;
       const start=point(dest[0]+nx*reach+(rand()-.5)*13,dest[1]+ny*reach+(rand()-.5)*13);
-      if(!inside(start,geo.coastline))continue;
+      if(!isLand(start,geo))continue;
       const pts=[start,point(start[0]*.72+dest[0]*.28+(rand()-.5)*9,start[1]*.72+dest[1]*.28+(rand()-.5)*9),
                     point(start[0]*.38+dest[0]*.62+(rand()-.5)*6,start[1]*.38+dest[1]*.62+(rand()-.5)*6),point(...dest)];
       streams.push({id:'ruisseau-'+streams.length,name:'Affluent secondaire fictif',points:pts,join:river.id,kind:'affluent'});
@@ -250,13 +258,13 @@
   if(tileCache.has(id)){const cached=tileCache.get(id);tileCache.delete(id);tileCache.set(id,cached);return cached;}
   const ox=i*TILE,oy=j*TILE,center=[ox+TILE/2,oy+TILE/2];
   const corners=[[ox,oy],[ox+TILE,oy],[ox+TILE,oy+TILE],[ox,oy+TILE]];
-  if(!inside(center,geo.coastline)&&!corners.some(p=>inside(p,geo.coastline)))return null;
+  if(!isLand(center,geo)&&!corners.some(p=>isLand(p,geo)))return null;
   const rand=rng((Math.imul(i+8192,1371691)^Math.imul(j+8192,374761393)^SEED)>>>0);
   const kind=biome(center[0],center[1]), fields=[],trees=[],tracks=[],rocks=[],farms=[],contours=[];
   if(['cultures','prairie','steppe','desert'].includes(kind)){
     for(let k=0;k<26;k++){
       const x=ox+1+rand()*22,y=oy+1+rand()*22;
-      if(!inside([x,y],geo.coastline))continue;
+      if(!isLand([x,y],geo))continue;
       const angle=.2+(rand()-.5)*1.4,w=.8+rand()*2.4,h=.7+rand()*1.75;
       const polygon=[[-w,-h],[w,-h],[w*(.85+rand()*.2),h],[-w*.9,h]].map(([a,b])=>point(x+a*Math.cos(angle)-b*Math.sin(angle),y+a*Math.sin(angle)+b*Math.cos(angle)));
       fields.push({polygon,kind});
@@ -398,5 +406,5 @@
   }
   const plan={roads,houses};townCache.set(town.id,plan);return plan;
  }
- return {VERSION,SEED,inside,height,biome,makeWorld,townPlan,localTile,cityTile,segmentDistance};
+ return {VERSION,SEED,inside,isLand,height,biome,makeWorld,townPlan,localTile,cityTile,segmentDistance};
 });
