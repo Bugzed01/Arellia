@@ -153,3 +153,5 @@ Il s'agit d'une **version 1.0 de l'atlas expérimental**, pas d'un cadastre comp
 ## Arélia Maps 1.1 — Occidian, Orientale et Estrel
 
 La carte propose désormais un sélecteur **Autres villes**, ainsi que les URLs `/atlas/?vue=occidian`, `?vue=orientale` et `?vue=estrel`. Chaque plan comporte un tissu bâti vectoriel, 14 grands axes courbes, 62 voies locales, sept jardins, deux cours d'eau / canaux et six lieux proposés. Le modèle de source est `src/maps/other_cities.json`, copié automatiquement par `src/build.py` au site publié. Les quartiers sont des **propositions fictionnelles non canoniques** et ne prétendent pas représenter précisément le million de km² de l'île à l'échelle des rues. Vésone et ses itinéraires existants restent indépendants.
+
+Les trois plans apparaissent également en zoomant depuis l'atlas national ; le sélecteur permet de se recentrer immédiatement sur une ville. Les notices du wiki d'Occidian, d'Orientale et d'Estrel renvoient vers le plan correspondant.

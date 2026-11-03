@@ -182,3 +182,9 @@ for id,theme in expected.items():
     assert all(p['cityId']==id for p in city2['places'])
     assert all(all(0<=x<=1500 and 0<=y<=1400 for x,y in b['polygon']) for b in city2['buildings'])
 print('Arélia Maps 1.1 : plans vectoriels validés pour Occidian, Orientale et Estrel.')
+
+# Cartographic deep links must point to the three new city plans.
+for slug in ('occidian','orientale','estrel'):
+    city_page=(root/'site/wiki'/slug/'index.html').read_text(encoding='utf-8')
+    assert f'href="../../atlas/?vue={slug}"' in city_page
+print('Navigation 1.1 : accès directs depuis les notices des trois villes.')

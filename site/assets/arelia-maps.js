@@ -12,6 +12,7 @@
  const num=(n)=>Math.round(n).toLocaleString('fr-FR');
  const toWorld=(px,py)=>[(px-state.tx)/state.scale,(py-state.ty)/state.scale];
  const getDim=()=>[host.clientWidth,host.clientHeight];
+ const nearViewport=(center)=>{const [x,y]=coord(center),[w,h]=getDim();return x>-180&&x<w+180&&y>-180&&y<h+180;};
  const chosen=()=>[...(state.data?.places||[]),...(state.city?.places||[])].find(p=>p.id===state.selected);
  const wikiHref=p=>'../wiki/'+(p.wiki||'arelia')+'/';
  function resize(){const [w,h]=getDim();state.dpr=Math.min(2,window.devicePixelRatio||1);canvas.width=Math.round(w*state.dpr);canvas.height=Math.round(h*state.dpr);canvas.style.width=w+'px';canvas.style.height=h+'px';draw();}
@@ -27,11 +28,11 @@
   if(state.layers.rail){d.railways.forEach(r=>polyline(r.points,'#34505c',2.2,[6,4],true));}
   if(state.layers.water&&state.scale>=state.baseScale*4.5&&!state.city){d.capital.canals.forEach(r=>polyline(r.points,'#f4fbfa',8));d.capital.canals.forEach(r=>polyline(r.points,'#3e9eaf',5.2));}
   if(state.scale>=state.baseScale*5)drawCities();
-  if(state.cityMode && !state.secondaryCity && state.city && state.scale>=state.baseScale*3.1)drawMetropolis();
-   if(state.cityMode && !state.secondaryCity && state.city && state.scale>=state.baseScale*5.6)drawVesone();
-  if(state.cityMode&&state.secondaryCity&&state.scale>=state.baseScale*4.2)drawSecondaryCity();
+  if(!state.secondaryCity && state.city && state.scale>=state.baseScale*3.1 && nearViewport([1110,698]))drawMetropolis();
+   if(!state.secondaryCity && state.city && state.scale>=state.baseScale*5.6 && nearViewport([1110,698]))drawVesone();
+  if(state.scale>=state.baseScale*4.2)for(const city of state.secondaryCity?[state.secondaryCity]:Object.values(state.secondaryData?.cities||{})){if(nearViewport(city.center))drawSecondaryCity(city);}
  }
- function drawCities(){if(state.scale<1)return;const cityList=state.data.places.filter(p=>['capitale','metropole','ville'].includes(p.category));for(const city of cityList){if(city.id==='vesone'||(state.secondaryCity&&city.id===state.secondaryCity.id))continue;let radius=city.category==='ville'?8:city.category==='capitale'?35:28;const x=city.x,y=city.y;ctx.fillStyle='rgba(241,235,216,.33)';ctx.beginPath();ctx.ellipse(x,y,radius,radius*.8,0,0,Math.PI*2);ctx.fill();const step=city.id==='vesone'?5.5:6;const angle=city.id==='vesone'?.21:-.13;ctx.save();ctx.translate(x,y);ctx.rotate(angle);for(let p=-radius;p<=radius;p+=step){const t=Math.sqrt(Math.max(0,radius*radius-p*p));polyline([[p,-t*.75],[p,t*.75]],'#f4ede2',1.1);polyline([[-t,p*.75],[t,p*.75]],'#f4ede2',1.1)}ctx.restore();}
+ function drawCities(){if(state.scale<1)return;const level=state.scale/state.baseScale,cityList=state.data.places.filter(p=>['capitale','metropole','ville'].includes(p.category));for(const city of cityList){if(city.id==='vesone'||(level>=6&&state.secondaryData?.cities?.[city.id]))continue;let radius=city.category==='ville'?8:city.category==='capitale'?35:28;const x=city.x,y=city.y;ctx.fillStyle='rgba(241,235,216,.33)';ctx.beginPath();ctx.ellipse(x,y,radius,radius*.8,0,0,Math.PI*2);ctx.fill();const step=city.id==='vesone'?5.5:6;const angle=city.id==='vesone'?.21:-.13;ctx.save();ctx.translate(x,y);ctx.rotate(angle);for(let p=-radius;p<=radius;p+=step){const t=Math.sqrt(Math.max(0,radius*radius-p*p));polyline([[p,-t*.75],[p,t*.75]],'#f4ede2',1.1);polyline([[-t,p*.75],[t,p*.75]],'#f4ede2',1.1)}ctx.restore();}
  if(state.layers.water && !state.city){state.data.capital.canals.forEach(r=>polyline(r.points,'#f7f8f3',8.5));state.data.capital.canals.forEach(r=>polyline(r.points,'#3b98a8',5.2));}
  if(!state.city && state.scale>state.baseScale*17){ctx.font=(12/state.scale)+'px Arial';ctx.fillStyle='#284453';state.data.capital.districts.forEach(p=>ctx.fillText(p.name,p.x,p.y));state.data.capital.places.forEach(p=>{ctx.fillStyle='#a1844b';ctx.beginPath();ctx.arc(p.x,p.y,3/state.scale,0,Math.PI*2);ctx.fill()})}
  }
@@ -97,8 +98,8 @@
     ctx.restore();
   }
 
- function drawSecondaryCity(){
-  const city=state.secondaryCity,level=state.scale/state.baseScale,night=state.style==='night';
+ function drawSecondaryCity(city){
+  const level=state.scale/state.baseScale,night=state.style==='night';
   if(!city)return;
   const paint=(pts,color,edge=null)=>{
     if(!pts?.length)return;ctx.beginPath();ctx.moveTo(pts[0][0],pts[0][1]);

@@ -96,6 +96,8 @@ for a in ARTICLES:
  for key,val in a.get('facts',{}).items(): page+=f'<dt>{esc(key)}</dt><dd>{esc(val)}</dd>'
  page+='</dl></div>'
  if slug=='vesone': page+='<p><a class="btn btn-gold" href="../../atlas/?vue=vesone">Explorer les rues et canaux de Vésone ↗</a></p>'
+ if slug in ('occidian','orientale','estrel'):
+  page+=f'<p><a class="btn btn-gold" href="../../atlas/?vue={slug}">Explorer le plan de {esc(a["title"])} ↗</a></p>'
  for i,s in enumerate(a['sections']):
   page+=f'<h2 id="section-{i+1}">{esc(s[0])}</h2>'
   for p in s[1:]: page+='<p>'+esc(p)+'</p>'
