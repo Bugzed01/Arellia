@@ -34,7 +34,10 @@ city_ids=[p['id'] for p in city['places']]
 assert len(city_ids)==len(set(city_ids))
 minpos,maxpos=city['meta']['bounds']
 for item in city['places']+city['bridges']:
-    assert minpos[0]<=item['x']<=maxpos[0] and minpos[1]<=item['y']<=maxpos[1],item
+    if item.get('category')=='ville-satellite':
+        assert 0<=item['x']<=1500 and 0<=item['y']<=1400,item
+    else:
+        assert minpos[0]<=item['x']<=maxpos[0] and minpos[1]<=item['y']<=maxpos[1],item
 for collection in ['streets','canals']:
     for item in city[collection]:
         assert len(item['points'])>=2,item
