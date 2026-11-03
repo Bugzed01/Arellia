@@ -29,6 +29,10 @@ jobs:
         run: |
           node --check site/assets/arelia-routing.js
           node src/maps/route_validate.cjs
+      - name: Vérifier les échelles et libellés
+        run: |
+          node --check site/assets/arelia-display.js
+          node src/maps/display_validate.cjs
       - name: Configurer GitHub Pages
         uses: actions/configure-pages@v5
       - name: Télécharger le site statique comme artefact
