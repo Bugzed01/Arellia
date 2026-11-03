@@ -436,7 +436,7 @@ def enrich_metropolitan(city):
     """Apply versioned source geography to the organic core without changing its streets."""
     overlay_path = Path(__file__).with_name('metro_overlay.json')
     overlay = json.loads(overlay_path.read_text(encoding='utf-8'))
-    assert overlay['metropolitan']['version'] == '0.6.0'
+    assert overlay['metropolitan']['version'] == '0.7.0'
     city['metropolitan'] = overlay['metropolitan']
     known = {place['id'] for place in city['places']}
     for place in overlay['places']:
@@ -444,7 +444,7 @@ def enrich_metropolitan(city):
             raise ValueError('Identifiant métropolitain dupliqué : ' + place['id'])
         city['places'].append(place)
         known.add(place['id'])
-    city['meta']['version'] = '0.6.0'
+    city['meta']['version'] = '0.7.0'
     city['meta']['disclaimer'] += ' Agglomération et transports régionaux schématiques.'
     return city
 
