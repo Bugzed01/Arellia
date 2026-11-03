@@ -170,3 +170,5 @@ Le moteur dessine les détails selon le zoom et la portion visible du territoire
 ### Focus : l'estuaire d'Occidian
 Le port reçoit trois bassins, trois secteurs logistiques, des quais, des embranchements routiers et ferroviaires, des entrepôts, des ponts placés sur des croisements calculés avec les voies d'eau et huit lieux supplémentaires à découvrir. Les bâtiments proches des bassins et des zones logistiques ont été filtrés lors de cette édition.
 **Tous les tracés, ouvrages et toponymes ajoutés sont provisoires ; ils ne constituent pas un port navigable simulé.**
+
+Les plans urbains sont densifiés à très fort zoom par un second niveau de cellules de 8 unités. Les bâtiments complémentaires sont créés à la demande, mémorisés et orientés selon les voies proches, avec exclusions autour des cours d'eau, parcs et empreintes existantes. Les bâtiments ne sont pas ajoutés de façon permanente aux fichiers canoniques : ils restent des propositions purement cartographiques.

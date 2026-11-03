@@ -42,3 +42,20 @@ const left=worldModule.localTile(geo,34,31);
 if(left?.tracks?.length&&sample?.tracks?.length){
  assert.deepEqual(left.tracks[0].points.at(-1),sample.tracks[0].points[0],'Chemin rural non raccordé en bord de tuile');
 }
+
+const vesone=JSON.parse(fs.readFileSync(path.join(__dirname,'../../site/assets/vesone-city.json'),'utf8'));
+let cityHouses=0,vesoneHouses=0;
+for(let j=87;j<=90;j++)for(let i=137;i<=140;i++){
+ const tile=worldModule.cityTile(vesone,i,j);
+ if(tile)vesoneHouses+=tile.buildings.length;
+}
+const cityTest=w.cityPlans.katoru;
+for(let j=Math.floor(cityTest.center[1]/8)-2;j<=Math.floor(cityTest.center[1]/8)+2;j++)
+for(let i=Math.floor(cityTest.center[0]/8)-2;i<=Math.floor(cityTest.center[0]/8)+2;i++){
+ const tile=worldModule.cityTile(cityTest,i,j);
+ if(tile)cityHouses+=tile.buildings.length;
+}
+assert.ok(vesoneHouses>=5,'Bâtiments urbains complémentaires absents de Vésone');
+assert.ok(cityHouses>=10,'Bâtiments urbains complémentaires absents de Katoru');
+assert.deepEqual(worldModule.cityTile(cityTest,61,42),worldModule.cityTile(cityTest,61,42));
+console.log('Tuiles urbaines fines : '+vesoneHouses+' bâtiments autour de Vésone ; '+cityHouses+' près de Katoru.');

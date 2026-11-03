@@ -285,6 +285,28 @@
     ctx.restore();
   }
 
+
+ // Tissu bâti complémentaire au très fort zoom ; seules les cellules urbaines
+ // effectivement visibles sont demandées au générateur cartographique.
+ function drawCityMicro(city,paint,night){
+   const level=state.scale/state.baseScale;
+   if(!state.layers.urban||level<40)return;
+   const [w,h]=getDim(),tl=toWorld(0,0),br=toWorld(w,h),step=8;
+   const west=Math.min(...city.outline.map(p=>p[0])),east=Math.max(...city.outline.map(p=>p[0]));
+   const north=Math.min(...city.outline.map(p=>p[1])),south=Math.max(...city.outline.map(p=>p[1]));
+   const i0=Math.max(Math.floor(west/step)-1,Math.floor(tl[0]/step)-1);
+   const i1=Math.min(Math.ceil(east/step)+1,Math.ceil(br[0]/step)+1);
+   const j0=Math.max(Math.floor(north/step)-1,Math.floor(tl[1]/step)-1);
+   const j1=Math.min(Math.ceil(south/step)+1,Math.ceil(br[1]/step)+1);
+   ctx.save();ctx.globalAlpha*=carto.fade(level,40,65);
+   for(let j=j0;j<=j1;j++)for(let i=i0;i<=i1;i++){
+     const tile=worldAPI.cityTile(city,i,j);
+     if(!tile)continue;
+     for(const building of tile.buildings)paint(building.polygon,night?'#aeb2ae':building.roof,night?'#6d7877':'#a7a095',.05);
+   }
+   ctx.restore();
+ }
+
  function drawSecondaryCity(city){
   const level=state.scale/state.baseScale,night=state.style==='night';
   if(!city)return;
@@ -313,6 +335,7 @@
      for(const b of city.buildings)paint(b.polygon,night?'#9d9e95':b.roof,night?'#707676':'#aa9f90');
      for(const warehouse of city.warehouses||[])paint(warehouse.polygon,night?'#a0a9a7':warehouse.roof,night?'#77878a':'#a2a8a1');
      ctx.restore();
+     if(level>=40)drawCityMicro(city,paint,night);
    }
    for(const road of city.avenues){stroke(road.points,night?'#7b7674':'#b9aa90',road.class==='avenue'?2.0:1.35);stroke(road.points,night?'#e5ded0':'#fdf8e9',road.class==='avenue'?1.47:.95);}
    for(const road of city.portRoads||[]){stroke(road.points,night?'#786d69':'#a99c88',2.05);stroke(road.points,night?'#e2ddcc':'#f5eddb',1.25);}
@@ -374,6 +397,7 @@
      ctx.save();ctx.globalAlpha*=carto.fade(level,12,17);
      for(const building of city.buildings)fill(building.polygon,night?'#a6a39d':building.roof,night?'#747976':'#b9ab99',.075);
      ctx.restore();
+     if(level>=40)drawCityMicro(city,fill,night);
     }
     if(state.layers.zones&&level>=7){
       for(const zone of city.urban_zones||[])fill(zone.polygon,night?'rgba(55,78,87,.08)':zone.color+'1e');
