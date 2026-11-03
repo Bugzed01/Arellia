@@ -304,14 +304,22 @@
   ctx.beginPath();ctx.moveTo(city.outline[0][0],city.outline[0][1]);
   for(let i=1;i<city.outline.length;i++)ctx.lineTo(city.outline[i][0],city.outline[i][1]);ctx.closePath();ctx.clip();
   if(city.sea?.length)paint(city.sea,night?'#25576c':'#86b5c8');
+  for(const yard of city.portYards||[])paint(yard.polygon,night?'#53666d':'#bbb7a7',night?'#657578':'#a09b8f');
+  for(const basin of city.harbourBasins||[])paint(basin.polygon,night?'#205974':'#79b3c7',night?'#387189':'#c4dce4');
   for(const park of city.parks)paint(park.polygon,night?'#426b58':city.parkColor,night?'#51695a':'#a5b99d');
   if(state.layers.urban){
    if(level>=12){
      ctx.save();ctx.globalAlpha*=carto.fade(level,12,17);
      for(const b of city.buildings)paint(b.polygon,night?'#9d9e95':b.roof,night?'#707676':'#aa9f90');
+     for(const warehouse of city.warehouses||[])paint(warehouse.polygon,night?'#a0a9a7':warehouse.roof,night?'#77878a':'#a2a8a1');
      ctx.restore();
    }
    for(const road of city.avenues){stroke(road.points,night?'#7b7674':'#b9aa90',road.class==='avenue'?2.0:1.35);stroke(road.points,night?'#e5ded0':'#fdf8e9',road.class==='avenue'?1.47:.95);}
+   for(const road of city.portRoads||[]){stroke(road.points,night?'#786d69':'#a99c88',2.05);stroke(road.points,night?'#e2ddcc':'#f5eddb',1.25);}
+   if(state.layers.transit)for(const rail of city.portRail||[]){
+      stroke(rail.points,night?'#253f48':'#fffaf1',1.5);
+      ctx.save();ctx.setLineDash([1,.7]);stroke(rail.points,night?'#92bfc7':'#426e78',.68);ctx.restore();
+   }
    if(level>=10){ctx.save();ctx.globalAlpha*=carto.fade(level,10,14);
      for(const road of city.streets)stroke(road.points,night?'#d7d2c4':'#faf7ed',.57);
      ctx.restore();
@@ -319,6 +327,13 @@
   }
   if(state.layers.water){
    for(const water of city.water){stroke(water.points,night?'#e2d5c1':'#faf3e4',water.width+.9);stroke(water.points,night?'#2a6177':'#5d9cb0',water.width);}
+    for(const quay of city.quays||[])stroke(quay.points,night?'#d3c8ac':'#f2e2c9',.65);
+    for(const bridge of city.bridges||[]){
+       ctx.save();ctx.translate(bridge.x,bridge.y);ctx.rotate(bridge.angle);
+       ctx.fillStyle=night?'#545d63':'#a18d79';ctx.fillRect(-bridge.span/2,-bridge.width*.68,bridge.span,bridge.width*1.36);
+       ctx.fillStyle=night?'#d6c9b4':'#f4e6ce';ctx.fillRect(-bridge.span/2,-bridge.width*.48,bridge.span,bridge.width*.96);
+       ctx.restore();
+    }
   }
   ctx.restore();
   if(state.layers.labels&&level>=9&&level<22){

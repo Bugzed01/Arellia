@@ -166,3 +166,7 @@ Les nouvelles communes apparaissent en zoomant sur le territoire et sont recherc
 Le moteur dessine les détails selon le zoom et la portion visible du territoire, sans service cartographique tiers. Les campagnes et les régions naturelles ont leurs propres dessins à fort zoom. Les nouveaux chemins ne sont pas encore intégrés au calcul d'itinéraire : aucune durée de déplacement ou connexion physique réelle n'est garantie.
 
 À très fort zoom, le moteur produit à la demande des **cellules rurales de 24 unités** (cultures, sentiers, bois, détails rocheux, courbes de relief et petites constructions). Les chemins aux bordures de cellules sont raccordés par une règle de génération commune. La mise en cache évite de recalculer les cellules déjà consultées. Le plafond de zoom a été étendu pour inspecter les détails locaux. Toutes ces figures sont schématiques : elles ne constituent pas une carte cadastrale ou touristique précise.
+
+### Focus : l'estuaire d'Occidian
+Le port reçoit trois bassins, trois secteurs logistiques, des quais, des embranchements routiers et ferroviaires, des entrepôts, des ponts placés sur des croisements calculés avec les voies d'eau et huit lieux supplémentaires à découvrir. Les bâtiments proches des bassins et des zones logistiques ont été filtrés lors de cette édition.
+**Tous les tracés, ouvrages et toponymes ajoutés sont provisoires ; ils ne constituent pas un port navigable simulé.**

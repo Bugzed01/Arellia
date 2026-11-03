@@ -169,7 +169,7 @@ print('Vésone 1.0 :',city['water_clearance']['excluded_buildings'],'bâtiments 
 # v1.1 — trois plans vectoriels d'architecture urbaine distincte.
 other=json.loads((root/'site/assets/arelia-other-cities.json').read_text(encoding='utf-8'))
 source=json.loads((root/'src/maps/other_cities.json').read_text(encoding='utf-8'))
-assert other==source and other['version']=='1.1.0'
+assert other==source and other['version']=='1.2.0'
 expected={'occidian':'estuaire','orientale':'baie','estrel':'vallee'}
 assert set(other['cities'])==set(expected)
 for id,theme in expected.items():
@@ -188,3 +188,19 @@ for slug in ('occidian','orientale','estrel'):
     city_page=(root/'site/wiki'/slug/'index.html').read_text(encoding='utf-8')
     assert f'href="../../atlas/?vue={slug}"' in city_page
 print('Navigation 1.1 : accès directs depuis les notices des trois villes.')
+
+# Arélia Maps 1.2 — port d'Occidian, éléments distincts du tissu résidentiel.
+occ=other['cities']['occidian']
+assert len(occ['harbourBasins'])==3
+assert len(occ['portYards'])==3
+assert len(occ['quays'])>=8
+assert len(occ['portRoads'])>=4 and len(occ['portRail'])>=1
+assert len(occ['warehouses'])>=30 and len(occ['bridges'])>=10
+assert len(occ['buildings'])>=200 and len(occ['places'])>=12
+assert len(set(p['id'] for p in occ['places']))==len(occ['places'])
+for basin in occ['harbourBasins']:
+    assert len(basin['polygon'])>=4
+for bridge in occ['bridges']:
+    assert bridge['road_id'] in {r['id'] for r in occ['avenues']+occ['portRoads']+occ['portRail']}
+    assert bridge['water_id'] in {w['id'] for w in occ['water']}
+print('Port d’Occidian :',len(occ['harbourBasins']),'bassins,',len(occ['warehouses']),'entrepôts,',len(occ['bridges']),'ponts schématiques.')
