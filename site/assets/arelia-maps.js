@@ -353,7 +353,51 @@
   const status=document.createElement('p');status.className='maps-urban-status';status.textContent='Carte fictive, non cadastrale. Navigation par déplacement, zoom et recherche.';detail.append(status);
  }
  function renderCountryOverview(){detail.classList.remove('has-detail');detail.innerHTML='<div class="maps-detail-idle"><span class="maps-overline">ATLAS IMPÉRIAL</span><h2>Explorer Arélia.</h2><p>Choisissez une ville sur le territoire, ou cliquez sur « Vésone » pour découvrir les rues et les canaux.</p></div>'}
- function setup(){const area=host;let start=null;area.addEventListener('pointerdown',e=>{if(e.target.closest('button,input,select'))return;area.setPointerCapture(e.pointerId);start={x:e.clientX,y:e.clientY,tx:state.tx,ty:state.ty};area.classList.add('grabbing')});area.addEventListener('pointermove',e=>{if(!start)return;state.tx=start.tx+e.clientX-start.x;state.ty=start.ty+e.clientY-start.y;clamp();schedule()});const stop=()=>{start=null;area.classList.remove('grabbing')};area.addEventListener('pointerup',stop);area.addEventListener('pointercancel',stop);
+ function setup(){
+  const area=host,pointers=new Map();let gesture=null;
+  const local=e=>{const r=area.getBoundingClientRect();return [e.clientX-r.left,e.clientY-r.top]};
+  function calibrate(){
+    const ps=[...pointers.values()];
+    if(ps.length===1){gesture={kind:'pan',start:ps[0],tx:state.tx,ty:state.ty};return}
+    if(ps.length>=2){
+      const a=ps[0],b=ps[1],center=[(a[0]+b[0])/2,(a[1]+b[1])/2];
+      gesture={kind:'pinch',distance:Math.max(1,Math.hypot(a[0]-b[0],a[1]-b[1])),scale:state.scale,anchor:toWorld(center[0],center[1])};
+      return;
+    }
+    gesture=null;
+  }
+  area.addEventListener('pointerdown',e=>{
+    if(e.target.closest('button,input,select,a'))return;
+    if(e.pointerType==='touch')e.preventDefault();
+    area.setPointerCapture(e.pointerId);pointers.set(e.pointerId,local(e));
+    calibrate();area.classList.add('grabbing');
+  });
+  area.addEventListener('pointermove',e=>{
+    if(!pointers.has(e.pointerId))return;
+    pointers.set(e.pointerId,local(e));
+    if(!gesture)return;
+    const ps=[...pointers.values()];
+    if(ps.length>=2&&gesture.kind==='pinch'){
+      const a=ps[0],b=ps[1],center=[(a[0]+b[0])/2,(a[1]+b[1])/2];
+      const distance=Math.max(1,Math.hypot(a[0]-b[0],a[1]-b[1]));
+      const camera=carto.pinchCamera(gesture.anchor,center,gesture.scale,distance/gesture.distance,state.baseScale*.8,state.baseScale*42);
+      state.scale=camera.scale;state.tx=camera.tx;state.ty=camera.ty;clamp();schedule();
+    }else if(ps.length===1&&gesture.kind==='pan'){
+      state.tx=gesture.tx+ps[0][0]-gesture.start[0];
+      state.ty=gesture.ty+ps[0][1]-gesture.start[1];clamp();schedule();
+    }
+  });
+  const release=e=>{
+    if(!pointers.has(e.pointerId))return;
+    pointers.delete(e.pointerId);
+    if(area.hasPointerCapture(e.pointerId))area.releasePointerCapture(e.pointerId);
+    calibrate();if(!pointers.size)area.classList.remove('grabbing');
+  };
+  area.addEventListener('pointerup',release);area.addEventListener('pointercancel',release);
+  area.addEventListener('lostpointercapture',e=>{
+    if(pointers.delete(e.pointerId)){calibrate();if(!pointers.size)area.classList.remove('grabbing')}
+  });
+
   area.addEventListener('wheel',e=>{e.preventDefault();const rect=area.getBoundingClientRect();zoom(e.deltaY<0?1.23:.81,e.clientX-rect.left,e.clientY-rect.top)},{passive:false});area.addEventListener('dblclick',e=>{const r=area.getBoundingClientRect();zoom(1.7,e.clientX-r.left,e.clientY-r.top)});
   area.addEventListener('keydown',e=>{if(e.key==='Escape'&&state.cityMode){leaveCity();return;}const delta=70;if(e.key==='ArrowLeft')state.tx+=delta;else if(e.key==='ArrowRight')state.tx-=delta;else if(e.key==='ArrowUp')state.ty+=delta;else if(e.key==='ArrowDown')state.ty-=delta;else if(e.key==='+'||e.key==='=')zoom(1.4);else if(e.key==='-')zoom(.7);else return;e.preventDefault();clamp();schedule()});
   $('maps-visit-vesone').onclick=enterCity;$('maps-visit-metro').onclick=enterMetro;$('maps-visit-empire').onclick=leaveCity;
@@ -361,7 +405,17 @@
   for(const b of document.querySelectorAll('[data-style]'))b.onclick=()=>{state.style=b.dataset.style;document.querySelectorAll('[data-style]').forEach(v=>v.classList.toggle('selected',v===b));schedule()};
   const lp=$('maps-layers');$('maps-layers-toggle').onclick=()=>{lp.hidden=!lp.hidden;$('maps-layers-toggle').setAttribute('aria-expanded',String(!lp.hidden))};document.addEventListener('pointerdown',e=>{if(!lp.hidden&&!lp.contains(e.target)&&!$('maps-layers-toggle').contains(e.target)){$('maps-layers-toggle').setAttribute('aria-expanded','false');lp.hidden=true}});
   for(const checkbox of document.querySelectorAll('[data-layer]'))checkbox.onchange=()=>{state.layers[checkbox.dataset.layer]=checkbox.checked;schedule()};
-  const elevationReadout=$('maps-altitude-readout');
+  const addDismiss=()=>{
+    if(!detail.classList.contains('has-detail')||detail.querySelector('.maps-detail-dismiss'))return;
+    const close=document.createElement('button');close.type='button';
+    close.className='maps-detail-dismiss';close.setAttribute('aria-label','Fermer les détails');
+    close.textContent='×';
+    close.onclick=()=>{detail.classList.remove('has-detail');area.focus({preventScroll:true})};
+    detail.prepend(close);
+  };
+  const detailObserver=new MutationObserver(addDismiss);
+  detailObserver.observe(detail,{attributes:true,attributeFilter:['class'],childList:true});
+    const elevationReadout=$('maps-altitude-readout');
   area.addEventListener('pointermove',e=>{
     const terrain=state.city?.metropolitan?.terrain;
     if(!terrain||!state.cityMode||!(state.layers.relief||state.style==='terrain')){

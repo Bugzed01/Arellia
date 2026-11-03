@@ -46,3 +46,19 @@
 .maps-altitude-readout{position:absolute;z-index:6;left:186px;bottom:25px;max-width:245px;padding:7px 9px;background:#f6f3e9eb;border:1px solid #d4c9b1;border-radius:7px;font:700 10px 'DM Sans',Arial,sans-serif;color:#3c5a58;pointer-events:none}
 .maps-altitude-readout[hidden]{display:none!important}
 @media(max-width:700px){.maps-altitude-readout{left:10px;bottom:74px;font-size:9px;max-width:205px}}
+
+/* v1.0 — lisibilité, déplacement tactile et détails mobile */
+.maps-marker.collision-hidden:not(.selected) .maps-marker-label{display:none!important}
+.maps-zoom-band{display:block;margin-top:5px;font-size:9px;letter-spacing:.02em;font-weight:800;color:#59716b}
+.maps-detail-panel{position:relative}
+.maps-detail-dismiss{display:none}
+@media(max-width:1000px){
+ .maps-detail-dismiss{display:grid;place-items:center;position:sticky;top:0;float:right;margin:-12px -8px 4px 6px;z-index:30;border:1px solid #d5dedf;border-radius:50%;background:#f7f9f8;color:#285262;width:33px;height:33px;font-size:23px;line-height:1;box-shadow:0 3px 10px #16394915}
+}
+@media(max-width:700px){
+ .maps-detail-panel.has-detail{width:min(255px,83vw);max-height:45%;overflow-y:auto;top:85px}
+ .maps-zoom-band{font-size:8px}
+ .maps-map-caption{max-width:165px}
+ .maps-canvas-area{touch-action:none}
+}
+@media(prefers-reduced-motion:reduce){.maps-marker,.maps-view-toggle button{transition:none!important}}

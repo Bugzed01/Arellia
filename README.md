@@ -136,3 +136,16 @@ Dans la vue **Métropole**, le mode **Relief** affiche des courbes topographique
 - Les contrôles automatiques vérifient les 1 505 valeurs du modèle, les connexions hydrologiques et les positions de chaque franchissement.
 
 **Limite essentielle :** ni l’indice de relief ni les secteurs bas ne représentent de vraies altitudes, des niveaux d’eau, des débits ou une exposition aux crues. Ce n’est pas une carte de risque d’inondation. Les axes routiers et les ponts restent des propositions non canoniques.
+
+## Arélia Maps 1.0 — cohérence et ergonomie
+
+Version jalon du portail statique, sans données géographiques réelles :
+- Le générateur exclut les 64 bâtiments qui chevauchaient les emprises des canaux : 629 bâtiments restent dessinés.
+- Le centre, les îlots bâtis et les ruelles apparaissent progressivement avec le zoom plutôt que par paliers brutaux.
+- Les étiquettes se hiérarchisent selon le type de lieu et disparaissent lorsqu'elles se recouvrent (les repères cliquables restent visibles).
+- La carte accepte le glissement à un doigt, le zoom et le déplacement à deux doigts, la molette, le clavier et les boutons de zoom.
+- Un repère d'échelle géographique (Empire, Agglomération, Quartiers, Rues) et une barre métrique actualisée accompagnent la navigation.
+- Les fiches peuvent être fermées sur téléphone ; les contrôles restent séparés des interactions sur la carte.
+- Les règles de caméra et d'affichage font l'objet de tests Node indépendants et le générateur Python contrôle la géométrie des canaux.
+
+Il s'agit d'une **version 1.0 de l'atlas expérimental**, pas d'un cadastre complet ni d'une alternative de précision comparable à Google Maps.
