@@ -46,10 +46,19 @@ for name in ['arelia-terrain.webp','arelia-plan.webp','arelia-maps.css','arelia-
 print(f"Carte valide : {len(data['places'])} lieux, {len(city['places'])} lieux urbains, {len(city['streets'])} rues, {len(city['canals'])} canaux, {len(city['bridges'])} ponts; 1 M km².")
 
 # Organic urban atlas v0.3
-assert city['meta']['version']=='0.4.0'
+assert city['meta']['version']=='0.5.0'
 assert len(city['blocks'])>=200 and len(city['buildings'])>=600
 assert len(city['streets'])>=10 and len(city['canals'])>=5 and len(city['bridges'])>=10
 assert not any(s['id'].startswith(('rue-lat','rue-long')) for s in city['streets'])
 
 assert len(city['lanes'])>=500 and len(city['quays'])==2*len(city['canals'])
 assert len(city['squares'])==5 and len(city['trees'])>=80 and len(city['landmarks'])==3
+
+# v0.5: functional zones and public-transit overlays.
+assert len(city['urban_zones'])==7
+assert len(city['transit_lines'])>=4 and len(city['stations'])>=10
+assert len(city['expressways'])>=2 and len(city['harbour_basins'])>=2
+assert sum(city['landuse_stats'].values())==len(city['buildings'])
+assert all(b['height_class'] in {'lowrise','midrise','highrise','warehouse','monumental'} for b in city['buildings'])
+assert all(s['id'] in city_ids for s in city['stations'])
+assert all(len(r['points'])>=3 for r in city['transit_lines']+city['expressways'])

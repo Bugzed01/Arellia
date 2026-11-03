@@ -103,3 +103,7 @@ La trame orthogonale initiale a été remplacée par 253 îlots irréguliers, 72
 ### Vésone 0.4 — rues et quais organiques
 
 Le générateur Python définit désormais des îlots irréguliers, des parcelles alignées sur les axes proches, des ruelles, cinq places, des quais sur les deux rives des canaux, des arbres d'alignement et des empreintes de monuments. Ces détails sont **provisoires et fictifs** ; ils ne sont pas cadastraux. `python3 src/build.py` reconstruit le fichier généré `site/assets/vesone-city.json` lors du déploiement.
+
+## Vésone 0.5 — secteurs métropolitains (provisoires)
+
+Sept secteurs fonctionnels, quatre lignes de transport illustratives, dix stations et deux rocades complètent le plan organique. Des calques permettent de distinguer les fonctions des quartiers et le métro, tram et rail urbain. Les tracés, bâtiments et noms sont des hypothèses de worldbuilding et non des infrastructures définitives. L'inventaire couvre seulement la zone pilote de Vésone ; il ne constitue pas une modélisation complète de la métropole.
