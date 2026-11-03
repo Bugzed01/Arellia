@@ -39,6 +39,10 @@ jobs:
           node src/maps/world_validate.cjs
       - name: Tester le démarrage et la navigation de l'atlas
         run: node src/maps/viewer_smoke.cjs
+      - name: Vérifier les itinéraires nationaux réels sur le graphe
+        run: |
+          node --check site/assets/arelia-national-routing.js
+          node src/maps/national_route_validate.cjs
       - name: Configurer GitHub Pages
         uses: actions/configure-pages@v5
       - name: Télécharger le site statique comme artefact
