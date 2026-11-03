@@ -35,6 +35,11 @@ function fakeDOM(search){
    get innerHTML(){return this._html}
    querySelector(selector){
      if(selector==='.maps-marker-label')return this._label;
+     if(selector==='strong'||selector==='small'){
+       if(!this._query)this._query=new Map();
+       if(!this._query.has(selector))this._query.set(selector,new El(selector));
+       return this._query.get(selector);
+     }
      if(selector==='.maps-detail-dismiss')return this.children.find(c=>c?.className==='maps-detail-dismiss')||null;
      const m=selector.match(/^\[data-id="([^"]+)"\]$/);
      if(m)return this.children.find(c=>c?.dataset?.id===m[1])||null;
