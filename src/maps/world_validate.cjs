@@ -34,3 +34,11 @@ const testPlan=worldModule.townPlan(w.settlements[0]);
 assert.ok(testPlan.roads.length>=4&&testPlan.houses.length>=20);
 console.log('Arélia Maps '+w.version+': '+w.settlements.length+' localités, '+w.feeders.length+' dessertes, '+w.arterials.length+' liaisons régionales, '+Object.keys(w.cityPlans).length+' nouveaux plans de ville.');
 console.log('Milieux naturels : '+w.land.regions.length+' ensembles, '+w.land.fields.length+' parcelles et '+w.streams.length+' affluents secondaires.');
+
+const sample=worldModule.localTile(geo,35,31);
+assert.ok(sample&&sample.origin&&sample.fields&&sample.tracks,'Tuile rurale manquante');
+assert.deepEqual(sample,worldModule.localTile(geo,35,31),'Tuile incohérente au même endroit');
+const left=worldModule.localTile(geo,34,31);
+if(left?.tracks?.length&&sample?.tracks?.length){
+ assert.deepEqual(left.tracks[0].points.at(-1),sample.tracks[0].points[0],'Chemin rural non raccordé en bord de tuile');
+}
