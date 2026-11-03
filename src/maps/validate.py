@@ -46,7 +46,7 @@ for name in ['arelia-terrain.webp','arelia-plan.webp','arelia-maps.css','arelia-
 print(f"Carte valide : {len(data['places'])} lieux, {len(city['places'])} lieux urbains, {len(city['streets'])} rues, {len(city['canals'])} canaux, {len(city['bridges'])} ponts; 1 M km².")
 
 # Organic urban atlas v0.3
-assert city['meta']['version']=='0.5.0'
+assert city['meta']['version']=='0.6.0'
 assert len(city['blocks'])>=200 and len(city['buildings'])>=600
 assert len(city['streets'])>=10 and len(city['canals'])>=5 and len(city['bridges'])>=10
 assert not any(s['id'].startswith(('rue-lat','rue-long')) for s in city['streets'])
@@ -62,3 +62,18 @@ assert sum(city['landuse_stats'].values())==len(city['buildings'])
 assert all(b['height_class'] in {'lowrise','midrise','highrise','warehouse','monumental'} for b in city['buildings'])
 assert all(s['id'] in city_ids for s in city['stations'])
 assert all(len(r['points'])>=3 for r in city['transit_lines']+city['expressways'])
+
+# V0.6: satellite centres, regional roads and express rail links.
+metro=city['metropolitan']
+assert metro['version']=='0.6.0'
+assert len(metro['satellites'])==7
+assert len(metro['neighborhoods'])>=140
+assert len(metro['green_corridors'])>=4
+assert len(metro['regional_rail'])>=4 and len(metro['roads'])>=8
+assert len([p for p in city['places'] if p['category']=='ville-satellite'])==7
+assert all(s['id'] in {p['id'].removeprefix('sat-') for p in city['places']} for s in metro['satellites'])
+assert all(0<=s['x']<=1500 and 0<=s['y']<=1400 for s in metro['satellites'])
+assert len(set(p['id'] for p in city['places']))==len(city['places'])
+assert all(len(line['points'])>=4 for line in metro['regional_rail']+metro['roads'])
+assert (root/'src/maps/metro_overlay.json').exists()
+print('Grand Vésone :',len(metro['satellites']),'villes satellites,',len(metro['roads']),'axes métropolitains,',len(metro['regional_rail']),'liaisons express.')
