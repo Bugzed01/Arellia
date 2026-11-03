@@ -49,7 +49,7 @@ for name in ['arelia-terrain.webp','arelia-plan.webp','arelia-maps.css','arelia-
 print(f"Carte valide : {len(data['places'])} lieux, {len(city['places'])} lieux urbains, {len(city['streets'])} rues, {len(city['canals'])} canaux, {len(city['bridges'])} ponts; 1 M km².")
 
 # Organic urban atlas v0.3
-assert city['meta']['version']=='0.6.0'
+assert city['meta']['version']=='0.7.0'
 assert len(city['blocks'])>=200 and len(city['buildings'])>=600
 assert len(city['streets'])>=10 and len(city['canals'])>=5 and len(city['bridges'])>=10
 assert not any(s['id'].startswith(('rue-lat','rue-long')) for s in city['streets'])
@@ -68,7 +68,7 @@ assert all(len(r['points'])>=3 for r in city['transit_lines']+city['expressways'
 
 # V0.6: satellite centres, regional roads and express rail links.
 metro=city['metropolitan']
-assert metro['version']=='0.6.0'
+assert metro['version']=='0.7.0'
 assert len(metro['satellites'])==7
 assert len(metro['neighborhoods'])>=140
 assert len(metro['green_corridors'])>=4
@@ -80,3 +80,21 @@ assert len(set(p['id'] for p in city['places']))==len(city['places'])
 assert all(len(line['points'])>=4 for line in metro['regional_rail']+metro['roads'])
 assert (root/'src/maps/metro_overlay.json').exists()
 print('Grand Vésone :',len(metro['satellites']),'villes satellites,',len(metro['roads']),'axes métropolitains,',len(metro['regional_rail']),'liaisons express.')
+
+# V0.7 — topological linkage and station alignment.
+assert len(metro['road_connections'])==7
+assert len(metro['local_streets'])>=45 and len(metro['fabric_parcels'])>=200
+assert len(metro['landuse_patches'])==7
+assert len(metro['rail_stations'])==8
+assert len([p for p in city['places'] if p['category']=='gare-metropolitaine'])==8
+roads_by_id={r['id']:r for r in city['streets']}
+for connection in metro['road_connections']:
+    assert connection['urban_street_id'] in roads_by_id
+    assert connection['urban_vertex'] in roads_by_id[connection['urban_street_id']]['points']
+    road=next(r for r in metro['roads'] if r['id']==connection['road_id'])
+    assert road['points'][0]==connection['urban_vertex']
+for station in metro['rail_stations']:
+    assert any(station['id'] in [p['id'] for p in city['places']])
+    assert all(any([station['x'],station['y']]==point for point in r['points'])
+               for r in metro['regional_rail'] if r['id'] in station['lines'])
+print('Grand Vésone v0.7 : raccordements, gares alignées et tissus suburbains validés.')

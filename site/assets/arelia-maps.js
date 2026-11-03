@@ -45,11 +45,15 @@
       for(const green of metro.green_corridors)fill(green.polygon,night?'rgba(57,105,78,.52)':'rgba(110,149,112,.52)');
       for(const sat of metro.satellites)fill(sat.footprint,night?'#697472':'#d9d3bb',night?'#6f7777':'#bcad91');
       if(level>=9&&state.layers.urban)for(const block of metro.neighborhoods)fill(block.polygon,night?'#8e918d':block.color,night?'#697579':'#e2d9c9');
+      if(level>=8)for(const parcel of metro.fabric_parcels||[])fill(parcel.polygon,night?'#959c99':parcel.color,night?'#657277':'#c2b69f');
+      for(const greenSpace of metro.landuse_patches||[])fill(greenSpace.polygon,greenSpace.kind==='logistique'?(night?'#6d7778':'#c3c8c3'):(night?'#416557':'#a2c1a3'));
+      if(level>=6)for(const street of metro.local_streets||[]){line(street.points,night?'#49555c':'#b0aaa0',street.class==='avenue'?1.25:.75);line(street.points,night?'#e4dfd0':'#fcf8ed',street.class==='avenue'?.87:.48)}
+
       for(const road of metro.roads){const main=road.kind==='rocade';line(road.points,night?'#465363':'#a99c8b',main?2.4:1.9);line(road.points,night?'#e1c8a7':'#fbf6e7',main?1.55:1.1,road.kind==='contournement'?[3,2]:[])}
     }
     if(state.layers.metroRail){
       for(const track of metro.regional_rail){line(track.points,night?'#283b46':'rgba(252,249,234,.95)',2);line(track.points,track.color,.92,[2.2,1.1])}
-      if(level>=7)for(const sat of metro.satellites){ctx.beginPath();ctx.arc(sat.x,sat.y,1.3,0,Math.PI*2);ctx.fillStyle=night?'#d4dbe3':'white';ctx.fill();ctx.lineWidth=.44;ctx.strokeStyle='#536c82';ctx.stroke()}
+      if(level>=7)for(const station of metro.rail_stations||[]){ctx.beginPath();ctx.arc(station.x,station.y,station.kind==='interchange'?1.7:1.35,0,Math.PI*2);ctx.fillStyle=night?'#e4e6e7':'white';ctx.fill();ctx.lineWidth=.56;ctx.strokeStyle=station.kind==='interchange'?'#9f714d':'#536c82';ctx.stroke()}
     }
     ctx.restore();
   }
@@ -171,7 +175,7 @@
  function syncMarkers(){const [w,h]=getDim();const q=state.query.toLowerCase();for(const p of [...state.data.places,...(state.city?.places||[])]){const el=markers.querySelector('[data-id="'+p.id+'"]');if(!el)continue;const [sx,sy]=coord([p.x,p.y]);const isCity=['capitale','metropole','ville'].includes(p.category);let visible=state.layers.places&&sx>=-70&&sx<=w+70&&sy>=-40&&sy<=h+50;
   if(p.cityPOI){
     const level=state.scale/state.baseScale;
-    const threshold=p.category==='ville-satellite'?4.2:p.category==='quartier'?12:p.category==='transport'?21:p.category==='monument'?23:26;
+    const threshold=p.category==='gare-metropolitaine'?8:p.category==='ville-satellite'?4.2:p.category==='quartier'?12:p.category==='transport'?21:p.category==='monument'?23:26;
     visible=visible&&state.cityMode&&(level>=threshold||state.selected===p.id);
     if(p.category==='quartier'&&level>=24&&state.selected!==p.id)visible=false;
    }

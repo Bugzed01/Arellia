@@ -111,3 +111,7 @@ Sept secteurs fonctionnels, quatre lignes de transport illustratives, dix statio
 ## Grand Vésone 0.6
 
 La vue `/atlas/?vue=metropole` introduit sept pôles urbains satellites, 175 petites zones bâties schématiques, 9 axes métropolitains et quatre lignes ferroviaires express. Les données versionnées se trouvent dans `src/maps/metro_overlay.json`, appliqué au générateur de Vésone lors de la construction du site. Les routes et les formes urbaines restent des propositions fictives, sans temps de parcours réel.
+
+## Version 0.7 — continuité du Grand Vésone
+
+Les sept routes radiales sont ancrées sur des sommets de voies du centre ; les huit gares régionales correspondent à des points exacts des quatre lignes RER fictives. Sept villes satellites possèdent des rues locales et 331 parcelles suburbaines schématiques. Le rendu montre les gares, les voies locales et les zones d'activités au niveau de zoom pertinent. Tous les tracés restent provisoires.
