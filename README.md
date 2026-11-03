@@ -149,3 +149,7 @@ Version jalon du portail statique, sans données géographiques réelles :
 - Les règles de caméra et d'affichage font l'objet de tests Node indépendants et le générateur Python contrôle la géométrie des canaux.
 
 Il s'agit d'une **version 1.0 de l'atlas expérimental**, pas d'un cadastre complet ni d'une alternative de précision comparable à Google Maps.
+
+## Arélia Maps 1.1 — Occidian, Orientale et Estrel
+
+La carte propose désormais un sélecteur **Autres villes**, ainsi que les URLs `/atlas/?vue=occidian`, `?vue=orientale` et `?vue=estrel`. Chaque plan comporte un tissu bâti vectoriel, 14 grands axes courbes, 62 voies locales, sept jardins, deux cours d'eau / canaux et six lieux proposés. Le modèle de source est `src/maps/other_cities.json`, copié automatiquement par `src/build.py` au site publié. Les quartiers sont des **propositions fictionnelles non canoniques** et ne prétendent pas représenter précisément le million de km² de l'île à l'échelle des rues. Vésone et ses itinéraires existants restent indépendants.

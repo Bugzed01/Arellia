@@ -165,3 +165,20 @@ for building in city['buildings']:
                 assert dist_segment(a,c,d)>=radius-1e-8
                 assert dist_segment(b,c,d)>=radius-1e-8
 print('Vésone 1.0 :',city['water_clearance']['excluded_buildings'],'bâtiments écartés des canaux.')
+
+# v1.1 — trois plans vectoriels d'architecture urbaine distincte.
+other=json.loads((root/'site/assets/arelia-other-cities.json').read_text(encoding='utf-8'))
+source=json.loads((root/'src/maps/other_cities.json').read_text(encoding='utf-8'))
+assert other==source and other['version']=='1.1.0'
+expected={'occidian':'estuaire','orientale':'baie','estrel':'vallee'}
+assert set(other['cities'])==set(expected)
+for id,theme in expected.items():
+    city2=other['cities'][id]
+    assert city2['id']==id and city2['theme']==theme
+    assert len(city2['buildings'])>=200
+    assert len(city2['avenues'])>=12 and len(city2['streets'])>=50
+    assert len(city2['parks'])>=5 and len(city2['water'])>=2
+    assert len(city2['places'])>=6 and city2['status']=='provisoire'
+    assert all(p['cityId']==id for p in city2['places'])
+    assert all(all(0<=x<=1500 and 0<=y<=1400 for x,y in b['polygon']) for b in city2['buildings'])
+print('Arélia Maps 1.1 : plans vectoriels validés pour Occidian, Orientale et Estrel.')

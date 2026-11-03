@@ -67,6 +67,7 @@ layout('territoires/index.html','Territoires et villes','Les principales villes 
 # Atlas : l'interface est maintenue dans son module source, régénérée à chaque déploiement.
 from maps.vesone import write_city
 write_city(ROOT / 'site' / 'assets' / 'vesone-city.json')
+(SITE/'assets'/'arelia-other-cities.json').write_bytes((ROOT/'src'/'maps'/'other_cities.json').read_bytes())
 from maps.atlas_markup import render as render_atlas
 layout('atlas/index.html','Arélia Maps — Atlas interactif','Carte interactive d’Arélia : villes, reliefs, fleuves, canaux et itinéraires.',render_atlas(),'atlas')
 
