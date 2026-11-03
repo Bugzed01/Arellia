@@ -23,3 +23,12 @@
 
 .maps-city-legend{display:none;font:600 12px 'DM Sans',Arial,sans-serif;color:#345463;margin:0}.maps-city-mode .maps-city-legend{display:block!important}.maps-city-mode .maps-bottom-bar>:not(.maps-city-legend){display:none!important}
 .maps-marker.local:not(.selected) .maps-marker-label{display:none}.maps-marker.local:hover .maps-marker-label,.maps-marker.local:focus-visible .maps-marker-label{display:block}
+
+/* v0.6 metropolitan navigation */
+.maps-city-mode.maps-metro-mode .maps-city-actions button#maps-visit-vesone{display:inline-flex}
+.maps-city-mode.maps-metro-mode .maps-city-actions button#maps-visit-metro{display:none}
+.maps-city-mode:not(.maps-metro-mode) .maps-city-actions button#maps-visit-vesone{display:none}
+.maps-city-actions button#maps-visit-metro{background:#f6faf6;color:#245264}
+.maps-marker.local.ville-satellite .dot{background:#a06e47;width:12px;height:12px;border:2px solid white}
+.maps-marker.local.ville-satellite .maps-marker-label{display:block;background:#fdf9eb}
+@media(max-width:700px){.maps-city-actions button{padding:7px 6px;font-size:9px}}

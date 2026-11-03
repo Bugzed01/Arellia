@@ -107,3 +107,7 @@ Le générateur Python définit désormais des îlots irréguliers, des parcelle
 ## Vésone 0.5 — secteurs métropolitains (provisoires)
 
 Sept secteurs fonctionnels, quatre lignes de transport illustratives, dix stations et deux rocades complètent le plan organique. Des calques permettent de distinguer les fonctions des quartiers et le métro, tram et rail urbain. Les tracés, bâtiments et noms sont des hypothèses de worldbuilding et non des infrastructures définitives. L'inventaire couvre seulement la zone pilote de Vésone ; il ne constitue pas une modélisation complète de la métropole.
+
+## Grand Vésone 0.6
+
+La vue `/atlas/?vue=metropole` introduit sept pôles urbains satellites, 175 petites zones bâties schématiques, 9 axes métropolitains et quatre lignes ferroviaires express. Les données versionnées se trouvent dans `src/maps/metro_overlay.json`, appliqué au générateur de Vésone lors de la construction du site. Les routes et les formes urbaines restent des propositions fictives, sans temps de parcours réel.
