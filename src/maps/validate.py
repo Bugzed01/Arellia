@@ -49,7 +49,7 @@ for name in ['arelia-terrain.webp','arelia-plan.webp','arelia-maps.css','arelia-
 print(f"Carte valide : {len(data['places'])} lieux, {len(city['places'])} lieux urbains, {len(city['streets'])} rues, {len(city['canals'])} canaux, {len(city['bridges'])} ponts; 1 M km².")
 
 # Organic urban atlas v0.3
-assert city['meta']['version']=='0.7.0'
+assert city['meta']['version']=='0.8.0'
 assert len(city['blocks'])>=200 and len(city['buildings'])>=600
 assert len(city['streets'])>=10 and len(city['canals'])>=5 and len(city['bridges'])>=10
 assert not any(s['id'].startswith(('rue-lat','rue-long')) for s in city['streets'])
@@ -68,7 +68,7 @@ assert all(len(r['points'])>=3 for r in city['transit_lines']+city['expressways'
 
 # V0.6: satellite centres, regional roads and express rail links.
 metro=city['metropolitan']
-assert metro['version']=='0.7.0'
+assert metro['version']=='0.8.0'
 assert len(metro['satellites'])==7
 assert len(metro['neighborhoods'])>=140
 assert len(metro['green_corridors'])>=4
@@ -98,3 +98,8 @@ for station in metro['rail_stations']:
     assert all(any([station['x'],station['y']]==point for point in r['points'])
                for r in metro['regional_rail'] if r['id'] in station['lines'])
 print('Grand Vésone v0.7 : raccordements, gares alignées et tissus suburbains validés.')
+
+# v0.8 : le calcul routier partage les axes nationaux métriques sans prétendre à la navigation réelle.
+assert metro['version']==city['meta']['version']
+assert (root/'site/assets/arelia-routing.js').is_file()
+assert (root/'src/maps/route_validate.cjs').is_file()

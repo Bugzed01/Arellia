@@ -1,6 +1,6 @@
 {
   "metropolitan": {
-    "version": "0.7.0",
+    "version": "0.8.0",
     "status": "provisoire",
     "scope": "Agglomération fictive de Vésone (échelle indicative)",
     "extent": [
@@ -7368,7 +7368,7 @@
       1110,
       698
     ],
-    "note": "Proposition géographique v0.7 : raccordements de voirie aux rues existantes et gares situées exactement sur les lignes fictives.",
+    "note": "Proposition géographique v0.7 : raccordements de voirie aux rues existantes et gares situées exactement sur les lignes fictives. Routage par intersection des corridors métropolitains, sans durées de parcours ni circulation simulée.",
     "road_connections": [
       {
         "id": "gate-belrives",

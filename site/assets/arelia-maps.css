@@ -32,3 +32,12 @@
 .maps-marker.local.ville-satellite .dot{background:#a06e47;width:12px;height:12px;border:2px solid white}
 .maps-marker.local.ville-satellite .maps-marker-label{display:block;background:#fdf9eb}
 @media(max-width:700px){.maps-city-actions button{padding:7px 6px;font-size:9px}}
+
+/* v0.8 · Calcul d'itinéraires fictifs sur les axes du Grand Vésone */
+.maps-metro-routing[hidden]{display:none!important}
+.maps-city-mode.maps-metro-mode .maps-bottom-bar>.maps-metro-routing{display:flex!important;flex-wrap:wrap;align-items:center;gap:7px;width:100%;padding:5px 9px}
+.maps-city-mode.maps-metro-mode .maps-bottom-bar>.maps-city-legend{display:none!important}
+.maps-metro-routing select{border:1px solid #cad7d7;border-radius:6px;background:white;padding:7px 8px;font-size:11px;color:#254858;min-width:0;max-width:170px}
+.maps-metro-routing select#maps-metro-mode{max-width:105px}
+.maps-metro-routing .maps-primary-action,.maps-metro-routing .maps-secondary-action{padding:8px 10px;font-size:11px}
+@media(max-width:700px){.maps-city-mode.maps-metro-mode .maps-bottom-bar{min-height:92px}.maps-metro-routing select{max-width:30vw!important;font-size:10px;padding:6px 3px}.maps-metro-routing select#maps-metro-mode{max-width:22vw!important}.maps-metro-routing .maps-primary-action,.maps-metro-routing .maps-secondary-action{font-size:10px;padding:7px 8px}}

@@ -25,6 +25,10 @@ jobs:
         run: python3 src/maps/validate.py
       - name: Vérifier le JavaScript de l'atlas
         run: node --check site/assets/arelia-maps.js
+      - name: Vérifier les parcours métropolitains
+        run: |
+          node --check site/assets/arelia-routing.js
+          node src/maps/route_validate.cjs
       - name: Configurer GitHub Pages
         uses: actions/configure-pages@v5
       - name: Télécharger le site statique comme artefact

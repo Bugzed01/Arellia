@@ -115,3 +115,13 @@ La vue `/atlas/?vue=metropole` introduit sept pôles urbains satellites, 175 pet
 ## Version 0.7 — continuité du Grand Vésone
 
 Les sept routes radiales sont ancrées sur des sommets de voies du centre ; les huit gares régionales correspondent à des points exacts des quatre lignes RER fictives. Sept villes satellites possèdent des rues locales et 331 parcelles suburbaines schématiques. Le rendu montre les gares, les voies locales et les zones d'activités au niveau de zoom pertinent. Tous les tracés restent provisoires.
+
+## Arélia Maps 0.8 — itinéraires réellement calculés sur le schéma
+
+La vue `/atlas/?vue=metropole` permet de choisir un départ et une arrivée parmi les sept villes satellites et un accès à Vésone, puis de calculer un trajet en **route** ou en **train express**.
+
+- Le moteur autonome `site/assets/arelia-routing.js` découpe les corridors routiers à leurs intersections et effectue une recherche de plus court chemin par longueur géométrique.
+- Les parcours ferroviaires sont calculés sur les quatre lignes fictives, avec correspondance possible au pôle central.
+- Les trajets sont des **schémas indicatifs**, pas une navigation Google Maps : pas de feux, vitesses, circulation, sens uniques, rues de quartier ni horaires. Les kilomètres dérivent de la convention d'échelle de l'atlas.
+- Les tests `src/maps/route_validate.cjs` vérifient les 56 couples orientés de lieux distincts en route et en train, et l'intégration est contrôlée à chaque publication GitHub Pages.
+- Le trajet vers « Vésone » aboutit à un **accès du centre urbain**, pas à l'implantation exacte d'un monument. La modélisation du relief hydrologique et des risques d'inondation reste à faire : aucune carte de risques n'est inférée de ces données.
