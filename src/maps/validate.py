@@ -94,7 +94,7 @@ for connection in metro['road_connections']:
     road=next(r for r in metro['roads'] if r['id']==connection['road_id'])
     assert road['points'][0]==connection['urban_vertex']
 for station in metro['rail_stations']:
-    assert any(station['id'] in [p['id'] for p in city['places']])
+    assert station['id'] in city_ids
     assert all(any([station['x'],station['y']]==point for point in r['points'])
                for r in metro['regional_rail'] if r['id'] in station['lines'])
 print('Grand Vésone v0.7 : raccordements, gares alignées et tissus suburbains validés.')
