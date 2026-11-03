@@ -5,7 +5,8 @@
  const host=$('maps-canvas-area');if(!host)return;
  const canvas=$('maps-canvas'),ctx=canvas.getContext('2d',{alpha:false});
  const results=$('maps-results'),detail=$('maps-detail'),markers=$('maps-markers');
- const state={data:null,images:{},style:'plan',layers:{roads:true,rail:true,water:true,places:true,labels:true,urban:true,canals:true,zones:true,transit:true,metro:true,metroRail:true,relief:false,lowlands:false},category:'all',query:'',selected:null,city:null,cityMode:false,metroMode:false,scale:1,baseScale:1,tx:0,ty:0,route:null,metroRoute:null,roadGraph:null,railGraph:null,drag:null,raf:0,dpr:1};
+ const carto=window.AreliaDisplay;if(!carto)throw Error('Règles de rendu indisponibles');
+ const state={markerNodes:new Map(),data:null,images:{},style:'plan',layers:{roads:true,rail:true,water:true,places:true,labels:true,urban:true,canals:true,zones:true,transit:true,metro:true,metroRail:true,relief:false,lowlands:false},category:'all',query:'',selected:null,city:null,cityMode:false,metroMode:false,scale:1,baseScale:1,tx:0,ty:0,route:null,metroRoute:null,roadGraph:null,railGraph:null,drag:null,raf:0,dpr:1};
  const terrain=new Image(),plan=new Image();terrain.src='../assets/arelia-terrain.webp';plan.src='../assets/arelia-plan.webp';state.images={terrain,plan};
  const coord=([x,y])=>[x*state.scale+state.tx,y*state.scale+state.ty];
  const num=(n)=>Math.round(n).toLocaleString('fr-FR');
@@ -27,7 +28,7 @@
   if(state.layers.water&&state.scale>=state.baseScale*4.5&&!state.city){d.capital.canals.forEach(r=>polyline(r.points,'#f4fbfa',8));d.capital.canals.forEach(r=>polyline(r.points,'#3e9eaf',5.2));}
   if(state.scale>=state.baseScale*5)drawCities();
   if(state.city && state.scale>=state.baseScale*3.1)drawMetropolis();
-   if(state.city && state.scale>=state.baseScale*6)drawVesone();
+   if(state.city && state.scale>=state.baseScale*5.6)drawVesone();
  }
  function drawCities(){if(state.scale<1)return;const cityList=state.data.places.filter(p=>['capitale','metropole','ville'].includes(p.category));for(const city of cityList){if(city.id==='vesone')continue;let radius=city.category==='ville'?8:city.category==='capitale'?35:28;const x=city.x,y=city.y;ctx.fillStyle='rgba(241,235,216,.33)';ctx.beginPath();ctx.ellipse(x,y,radius,radius*.8,0,0,Math.PI*2);ctx.fill();const step=city.id==='vesone'?5.5:6;const angle=city.id==='vesone'?.21:-.13;ctx.save();ctx.translate(x,y);ctx.rotate(angle);for(let p=-radius;p<=radius;p+=step){const t=Math.sqrt(Math.max(0,radius*radius-p*p));polyline([[p,-t*.75],[p,t*.75]],'#f4ede2',1.1);polyline([[-t,p*.75],[t,p*.75]],'#f4ede2',1.1)}ctx.restore();}
  if(state.layers.water && !state.city){state.data.capital.canals.forEach(r=>polyline(r.points,'#f7f8f3',8.5));state.data.capital.canals.forEach(r=>polyline(r.points,'#3b98a8',5.2));}
@@ -98,6 +99,7 @@
   const city=state.city,level=state.scale/state.baseScale;
   if(!city)return;
   const night=state.style==='night';
+  ctx.save();ctx.globalAlpha*=carto.fade(level,5.6,8.3);
   const trace=(pts,close=false)=>{
     if(!pts||!pts.length)return;
     ctx.beginPath();ctx.moveTo(pts[0][0],pts[0][1]);
@@ -122,7 +124,11 @@
   fill(city.outline,night?'#52616b':'#e6dfcf');
   if(state.layers.urban){
     if(level>=6)for(const block of city.blocks)fill(block.polygon,night?'#66686b':block.color,night?'#555d60':'#f6f2e7',.17);
-    if(level>=11)for(const building of city.buildings)fill(building.polygon,night?'#a6a39d':building.roof,night?'#747976':'#b9ab99',.075);
+    if(level>=12){
+     ctx.save();ctx.globalAlpha*=carto.fade(level,12,17);
+     for(const building of city.buildings)fill(building.polygon,night?'#a6a39d':building.roof,night?'#747976':'#b9ab99',.075);
+     ctx.restore();
+    }
     if(state.layers.zones&&level>=7){
       for(const zone of city.urban_zones||[])fill(zone.polygon,night?'rgba(55,78,87,.08)':zone.color+'1e');
       if(level>=13){
@@ -136,7 +142,11 @@
   for(const basin of city.harbour_basins||[])fill(basin.polygon,night?'#235f75':'#78adba',night?'#496c77':'#bad7db',.28);
   for(const square of city.squares||[])fill(square.polygon,night?'#9b8b74':'#e7ddca',night?'#c5b39d':'#cabb9e',.25);
   if(state.layers.urban){
-    if(level>=13)for(const lane of city.lanes||[])smooth(lane.points,night?'#b8aba0':'#f9f5e9',.32);
+    if(level>=11){
+       ctx.save();ctx.globalAlpha*=carto.fade(level,11,15);
+       for(const lane of city.lanes||[])smooth(lane.points,night?'#b8aba0':'#f9f5e9',.32);
+       ctx.restore();
+     }
     if(level>=9)for(const corridor of city.expressways||[]){
       smooth(corridor.points,night?'#586773':'#af9d85',3.3);
       smooth(corridor.points,night?'#c8c4b5':'#ead8b6',2.5);
@@ -198,6 +208,7 @@
     }
     ctx.restore();
   }
+  ctx.restore();
  }
  
  function drawLabel(x,y,title,category='region'){const [sx,sy]=coord([x,y]);const [w,h]=getDim();if(sx<0||sy<0||sx>w||sy>h)return;ctx.save();ctx.setTransform(state.dpr,0,0,state.dpr,0,0);ctx.font=(category==='sea'?'italic 500 14px Georgia':'700 11px Arial');ctx.textAlign='center';ctx.lineWidth=3;ctx.strokeStyle='rgba(242,245,240,.8)';ctx.strokeText(title,sx,sy);ctx.fillStyle=category==='sea'?'#b8e3e3':'#475c55';ctx.fillText(title,sx,sy);ctx.restore()}
@@ -255,19 +266,40 @@
   markerRoadNodes();drawRoute();drawMetroRoute();ctx.restore();
   if(state.layers.labels && state.scale<state.baseScale*7){state.data.labels.forEach(p=>drawLabel(p.x,p.y,p.name,p.kind));}
   syncMarkers();scaleBar();}
- function scaleBar(){const el=$('maps-scale');const dist=90/state.scale*state.data.meta.kilometres_per_unit;const values=[1,2,5,10,20,50,100,200,500,1000];let best=values.reduce((a,b)=>Math.abs(b-dist)<Math.abs(a-dist)?b:a);el.style.width=Math.max(30,Math.min(200,best/state.data.meta.kilometres_per_unit*state.scale))+'px';el.textContent=best+' km';}
- function syncMarkers(){const [w,h]=getDim();const q=state.query.toLowerCase();for(const p of [...state.data.places,...(state.city?.places||[])]){const el=markers.querySelector('[data-id="'+p.id+'"]');if(!el)continue;const [sx,sy]=coord([p.x,p.y]);const isCity=['capitale','metropole','ville'].includes(p.category);let visible=state.layers.places&&sx>=-70&&sx<=w+70&&sy>=-40&&sy<=h+50;
-  if(p.cityPOI){
-    const level=state.scale/state.baseScale;
-    const threshold=p.category==='gare-metropolitaine'?8:p.category==='ville-satellite'?4.2:p.category==='quartier'?12:p.category==='transport'?21:p.category==='monument'?23:26;
-    visible=visible&&state.cityMode&&(level>=threshold||state.selected===p.id);
-    if(p.category==='quartier'&&level>=24&&state.selected!==p.id)visible=false;
-   }
-  else if(state.cityMode)visible=false;
-  if(state.category!=='all'&&state.category!==p.category)visible=false;
-  if(q&&!normalize(p.name+' '+p.type).includes(normalize(q)))visible=false;
-  if(!p.cityPOI&&!isCity&&state.scale<state.baseScale*3&&state.selected!==p.id)visible=false;
-  el.dataset.hidden=String(!visible);el.classList.toggle('selected',state.selected===p.id);el.style.left=sx+'px';el.style.top=sy+'px';}}
+ function scaleBar(){
+  const b=carto.scaleBar(state.scale,state.data.meta.kilometres_per_unit);
+  if(!b)return;
+  const el=$('maps-scale');el.style.width=b.width+'px';el.textContent=b.label;
+  const level=state.scale/state.baseScale;
+  $('maps-zoom-band').textContent=({empire:'Empire',agglomeration:'Agglomération',quartiers:'Quartiers',rues:'Rues'})[carto.band(level)]+' · zoom ×'+Math.round(level*10)/10;
+}
+ function syncMarkers(){
+  const [w,h]=getDim(),q=normalize(state.query),visibleItems=[];
+  for(const p of [...state.data.places,...(state.city?.places||[])]){
+    const el=state.markerNodes.get(p.id);if(!el)continue;
+    const [sx,sy]=coord([p.x,p.y]);
+    const major=['capitale','metropole','ville'].includes(p.category);
+    const selected=state.selected===p.id;
+    let visible=state.layers.places&&sx>=-70&&sx<=w+70&&sy>=-40&&sy<=h+50;
+    if(p.cityPOI){
+      const level=state.scale/state.baseScale;
+      const threshold=p.category==='gare-metropolitaine'?8:p.category==='ville-satellite'?4.2:p.category==='quartier'?12:p.category==='transport'?21:p.category==='monument'?23:26;
+      visible=visible&&state.cityMode&&(level>=threshold||selected);
+      if(p.category==='quartier'&&level>=24&&!selected)visible=false;
+    }else if(state.cityMode)visible=false;
+    if(state.category!=='all'&&state.category!==p.category)visible=false;
+    if(q&&!normalize(p.name+' '+p.type).includes(q))visible=false;
+    if(!p.cityPOI&&!major&&state.scale<state.baseScale*3&&!selected)visible=false;
+    el.dataset.hidden=String(!visible);el.classList.toggle('selected',selected);
+    el.style.left=sx+'px';el.style.top=sy+'px';el.classList.remove('collision-hidden');
+    if(visible){
+      const showsLabel=selected||['ville-satellite','capitale','metropole','quartier'].includes(p.category);
+      const priority=selected?100:p.category==='capitale'?75:p.category==='ville-satellite'?70:p.category==='metropole'?65:p.category==='quartier'?35:10;
+      visibleItems.push({id:p.id,x:sx,y:sy,name:p.name,showsLabel,priority,selected});
+    }
+  }
+  for(const id of carto.declutter(visibleItems))state.markerNodes.get(id)?.classList.add('collision-hidden');
+}
  function normalize(s){return String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'')}
  function resultIcon(p){if(p.category==='quartier')return '▦';if(p.category==='monument')return '✧';if(p.category==='pont')return '≋';if(p.category==='transport')return '↗';return ['capitale','metropole','ville'].includes(p.category)?'⌂':p.category==='hydro'?'≈':'◆'}
  function listItems(){const q=normalize(state.query);const filtered=(state.cityMode?state.city.places:state.data.places).filter(p=>(state.category==='all'||state.category===p.category)&&(!q||normalize(p.name+' '+p.type+' '+p.description).includes(q)));$('maps-count').textContent=filtered.length;results.replaceChildren();if(!filtered.length){const empty=document.createElement('div');empty.className='maps-no-results';empty.textContent='Aucun lieu trouvé.';results.append(empty);return;}
@@ -281,7 +313,7 @@
   const closer=document.createElement('button');closer.type='button';closer.className='maps-detail-zoom';closer.textContent='Zoomer sur le lieu +';closer.addEventListener('click',()=>focus(p.x,p.y,p.cityPOI?33:16));detail.append(closer);
   const from=document.createElement('button');from.className='maps-detail-zoom';from.textContent='Choisir comme départ';from.addEventListener('click',()=>{$('maps-from').value=p.id;$('maps-to').focus()});if(['capitale','metropole','ville'].includes(p.category))detail.append(from);
  }
- function makeMarkers(){for(const p of [...state.data.places,...state.city.places]){const el=document.createElement('button');el.type='button';el.className='maps-marker '+(p.cityPOI?'local '+p.category+' ': '')+(p.category==='capitale'?'capitale':p.category==='nature'||p.category==='hydro'?'nature':p.category==='ville'?'city-minor':'');el.dataset.id=p.id;el.setAttribute('aria-label','Ouvrir '+p.name);el.innerHTML='<span class="maps-marker-label"></span><span class="dot"></span>';el.querySelector('.maps-marker-label').textContent=p.name;el.addEventListener('click',e=>{e.stopPropagation();select(p,false)});markers.append(el);}}
+ function makeMarkers(){for(const p of [...state.data.places,...state.city.places]){const el=document.createElement('button');el.type='button';el.className='maps-marker '+(p.cityPOI?'local '+p.category+' ': '')+(p.category==='capitale'?'capitale':p.category==='nature'||p.category==='hydro'?'nature':p.category==='ville'?'city-minor':'');el.dataset.id=p.id;el.setAttribute('aria-label','Ouvrir '+p.name);el.innerHTML='<span class="maps-marker-label"></span><span class="dot"></span>';el.querySelector('.maps-marker-label').textContent=p.name;el.addEventListener('click',e=>{e.stopPropagation();select(p,false)});markers.append(el);state.markerNodes.set(p.id,el);}}
  function setupRoutes(){const cities=state.data.places.filter(p=>['capitale','metropole','ville'].includes(p.category));for(const p of cities){for(const id of ['maps-from','maps-to']){const option=document.createElement('option');option.value=p.id;option.textContent=p.name;$(id).append(option)}}$('maps-from').value='occidian';$('maps-to').value='vesone';}
  function route(){const from=$('maps-from').value,to=$('maps-to').value;if(!from||!to||from===to){detail.textContent='Choisissez deux villes différentes.';detail.classList.add('has-detail');return;}const graph={};for(const p of state.data.places)graph[p.id]=[];for(const road of state.data.roads){for(let i=0;i<road.cities.length-1;i++){const a=state.data.places.find(p=>p.id===road.cities[i]),b=state.data.places.find(p=>p.id===road.cities[i+1]);if(!a||!b)continue;const km=Math.hypot(a.x-b.x,a.y-b.y)*state.data.meta.kilometres_per_unit*1.15;graph[a.id].push({to:b.id,km});graph[b.id].push({to:a.id,km})}}
  const dist=Object.fromEntries(Object.keys(graph).map(k=>[k,Infinity])),prev={},visited=new Set();dist[from]=0;while(true){let u=null;for(const k of Object.keys(dist)){if(!visited.has(k)&&(u===null||dist[k]<dist[u]))u=k}if(u===null||!isFinite(dist[u])||u===to)break;visited.add(u);for(const edge of graph[u]){const n=dist[u]+edge.km;if(n<dist[edge.to]){dist[edge.to]=n;prev[edge.to]=u}}}
