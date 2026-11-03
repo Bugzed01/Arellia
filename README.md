@@ -172,3 +172,11 @@ Le port reçoit trois bassins, trois secteurs logistiques, des quais, des embran
 **Tous les tracés, ouvrages et toponymes ajoutés sont provisoires ; ils ne constituent pas un port navigable simulé.**
 
 Les plans urbains sont densifiés à très fort zoom par un second niveau de cellules de 8 unités. Les bâtiments complémentaires sont créés à la demande, mémorisés et orientés selon les voies proches, avec exclusions autour des cours d'eau, parcs et empreintes existantes. Les bâtiments ne sont pas ajoutés de façon permanente aux fichiers canoniques : ils restent des propositions purement cartographiques.
+
+## Arélia Maps 1.3 — itinéraires nationaux topologiques
+
+Les itinéraires de l'atlas national ne sont plus des courbes inventées entre villes. Le moteur autonome `site/assets/arelia-national-routing.js` découpe les axes nationaux, régionaux et les dessertes rurales à leurs intersections ; une recherche de plus court chemin calcule ensuite des points **le long des voies représentées**.
+
+Les 790 localités peuvent être sélectionnées dans les menus « Départ » et « Arrivée », en complément des grandes villes. Les noms sont triés par ordre alphabétique et les lieux regroupés dans deux familles. Un chemin est dessiné avec sa distance géométrique approximative, sans durée de voyage.
+
+Les contrôles vérifient la reproductibilité du graphe, la connectivité entre les grands centres et l'accès routier à chacune des localités. Les franchissements routiers ne sont pas encore qualifiés : lorsqu'un axe en croise un autre, le prototype suppose une intersection praticable. Ce n'est **pas une carte routière certifiée ni un outil de navigation réelle**.

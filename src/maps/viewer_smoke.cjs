@@ -9,6 +9,7 @@ const vesone=load('site/assets/vesone-city.json');
 const others=load('site/assets/arelia-other-cities.json');
 const js=fs.readFileSync(path.join(root,'site/assets/arelia-maps.js'),'utf8');
 const routing=require('../../site/assets/arelia-routing.js');
+const nationalRouting=require('../../site/assets/arelia-national-routing.js');
 const display=require('../../site/assets/arelia-display.js');
 const world=require('../../site/assets/arelia-world.js');
 
@@ -87,7 +88,7 @@ function fakeDOM(search){
  class FakeImage{constructor(){this.complete=true;this.naturalWidth=1500;this.naturalHeight=1400;this.src=''}addEventListener(){}}
  class FakeObserver{constructor(){}observe(){}disconnect(){}}
  const errors=[];
- const fakeWindow={devicePixelRatio:1,innerWidth:1280,location:{search},AreliaRouting:routing,AreliaDisplay:display,AreliaWorld:world,addEventListener:()=>{}};
+ const fakeWindow={devicePixelRatio:1,innerWidth:1280,location:{search},AreliaRouting:routing,AreliaDisplay:display,AreliaWorld:world,AreliaNationalRouting:nationalRouting,addEventListener:()=>{}};
  const sandbox={
   document,window:fakeWindow,Image:FakeImage,MutationObserver:FakeObserver,ResizeObserver:FakeObserver,
   fetch:async url=>({ok:true,json:async()=>structuredClone(url.includes('vesone-city')?vesone:url.includes('arelia-other-cities')?others:geo)}),
@@ -112,6 +113,20 @@ async function scenario(query){
  }
  if(query==='?vue=vesone')assert.ok(ui.wrap.classList.contains('maps-city-mode'));
  if(query==='?vue=metropole')assert.ok(ui.wrap.classList.contains('maps-metro-mode'));
+ if(!query){
+   ui.els.get('maps-route').onclick();
+   await setTimeoutReal(100);
+   assert.deepEqual(ui.errors,[],'Erreur de parcours national : '+ui.errors.join(' ; '));
+   const text=ui.els.get('maps-detail').children.map(x=>x?.textContent||'').join(' ');
+   assert.ok(text.includes('itinéraire')||text.includes('Itinéraire'),'Fiche itinéraire non visible');
+   assert.ok(text.includes('km'),'Distance du parcours absente');
+   ui.els.get('maps-from').value='localite-0001';ui.els.get('maps-to').value='vesone';
+   ui.els.get('maps-route').onclick();
+   await setTimeoutReal(100);
+   assert.deepEqual(ui.errors,[],'Erreur itinéraire rural : '+ui.errors.join(' ; '));
+   const rural=ui.els.get('maps-detail').children.map(x=>x?.textContent||'').join(' ');
+   assert.ok(rural.includes('km'),'Trajet rural non affiché');
+ }
  console.log('Vue testée : '+(query||'nationale')+', '+ui.els.get('maps-markers').children.length+' marqueurs.');
 }
 (async()=>{
