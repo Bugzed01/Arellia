@@ -242,6 +242,83 @@
   return {version:VERSION,seed:SEED,provisional:true,land,arterials,settlements,feeders,streams,cityPlans,
    meta:{scope:'Toute l’île, détails procéduraux indicatifs',status:'Proposition non canonique',warning:'Ne représente pas un cadastre, les altitudes ou la navigation réelle.'}};
  }
+ // Cellules locales à la demande : chaque position intérieure de l'île conserve le
+ // même détail à chaque visite et les chemins se raccordent sur les bords de cellule.
+ const TILE=24,tileCache=new Map(),TILE_CACHE_LIMIT=140;
+ function localTile(geo,i,j){
+  const id=i+','+j;
+  if(tileCache.has(id)){const cached=tileCache.get(id);tileCache.delete(id);tileCache.set(id,cached);return cached;}
+  const ox=i*TILE,oy=j*TILE,center=[ox+TILE/2,oy+TILE/2];
+  const corners=[[ox,oy],[ox+TILE,oy],[ox+TILE,oy+TILE],[ox,oy+TILE]];
+  if(!inside(center,geo.coastline)&&!corners.some(p=>inside(p,geo.coastline)))return null;
+  const rand=rng((Math.imul(i+8192,1371691)^Math.imul(j+8192,374761393)^SEED)>>>0);
+  const kind=biome(center[0],center[1]), fields=[],trees=[],tracks=[],rocks=[],farms=[],contours=[];
+  if(['cultures','prairie','steppe','desert'].includes(kind)){
+    for(let k=0;k<26;k++){
+      const x=ox+1+rand()*22,y=oy+1+rand()*22;
+      if(!inside([x,y],geo.coastline))continue;
+      const angle=.2+(rand()-.5)*1.4,w=.8+rand()*2.4,h=.7+rand()*1.75;
+      const polygon=[[-w,-h],[w,-h],[w*(.85+rand()*.2),h],[-w*.9,h]].map(([a,b])=>point(x+a*Math.cos(angle)-b*Math.sin(angle),y+a*Math.sin(angle)+b*Math.cos(angle)));
+      fields.push({polygon,kind});
+    }
+  }
+  if(['foret','foret-humide','coniferes','marais','prairie'].includes(kind)){
+    const count=kind==='prairie'?38:kind==='marais'?58:100;
+    for(let k=0;k<count;k++){
+      const x=ox+rand()*TILE,y=oy+rand()*TILE;
+      if(inside([x,y],geo.coastline))trees.push({x:round(x),y:round(y),r:round(.09+rand()*.36)});
+    }
+  }
+  if(['roche','glacier','desert','steppe'].includes(kind)){
+    for(let k=0;k<48;k++){
+      const x=ox+rand()*TILE,y=oy+rand()*TILE;
+      if(!inside([x,y],geo.coastline))continue;
+      rocks.push({x:round(x),y:round(y),size:round(.25+rand()*1.5),orientation:rand()*Math.PI});
+    }
+  }
+  if(kind!=='glacier'&&kind!=='roche'){
+    // Hashing de la frontière partagée : les segments rejoignent la cellule adjacente.
+    const lh=oy+TILE*hash(i,j,741),rh=oy+TILE*hash(i+1,j,741);
+    const tx=ox+TILE*hash(i,j,973),bx=ox+TILE*hash(i,j+1,973);
+    tracks.push({kind:'rural',points:[point(ox,lh),point(ox+TILE*.35,(lh+rh)*.5+(rand()-.5)*7),point(ox+TILE*.68,(lh+rh)*.5+(rand()-.5)*7),point(ox+TILE,rh)]});
+    tracks.push({kind:'rural',points:[point(tx,oy),point((tx+bx)*.5+(rand()-.5)*6,oy+TILE*.4),point((tx+bx)*.5+(rand()-.5)*6,oy+TILE*.71),point(bx,oy+TILE)]});
+    if(kind==='cultures'||kind==='prairie'){
+      for(let k=0;k<4;k++){
+        const x=ox+3+rand()*18,y=oy+3+rand()*18;
+        if(!inside([x,y],geo.coastline))continue;
+        const ww=.25+rand()*.35,hh=.28+rand()*.45;
+        farms.push({polygon:[[x-ww,y-hh],[x+ww,y-hh],[x+ww,y+hh],[x-ww,y+hh]].map(q=>point(...q))});
+      }
+    }
+  }
+  // Courbes topographiques fines. L'indice reste relatif, jamais en mètres.
+  if(kind!=='desert'){
+    const step=2.4,cols=11,rows=11,grid=[];
+    for(let y=0;y<rows;y++)for(let x=0;x<cols;x++)grid.push(height(ox+x*step,oy+y*step));
+    const values=grid.filter(Number.isFinite),min=Math.min(...values),max=Math.max(...values);
+    for(let z=Math.ceil(min/4)*4;z<=max;z+=4){
+      const lines=[];
+      for(let y=0;y<rows-1;y++)for(let x=0;x<cols-1;x++){
+        const v=[grid[y*cols+x],grid[y*cols+x+1],grid[(y+1)*cols+x+1],grid[(y+1)*cols+x]];
+        const pts=[[ox+x*step,oy+y*step],[ox+(x+1)*step,oy+y*step],[ox+(x+1)*step,oy+(y+1)*step],[ox+x*step,oy+(y+1)*step]];
+        const hits=[];
+        for(let k=0;k<4;k++){
+          const next=(k+1)%4;if((v[k]<z)!==(v[next]<z)){
+            const t=(z-v[k])/(v[next]-v[k]);
+            hits.push(point(pts[k][0]+t*(pts[next][0]-pts[k][0]),pts[k][1]+t*(pts[next][1]-pts[k][1])));
+          }
+        }
+        if(hits.length===2)lines.push(hits);
+        else if(hits.length===4)lines.push([hits[0],hits[1]],[hits[2],hits[3]]);
+      }
+      if(lines.length)contours.push({level:z,segments:lines});
+    }
+  }
+  const obj={i,j,id,kind,origin:[ox,oy],fields,trees,tracks,rocks,farms,contours};
+  tileCache.set(id,obj);
+  if(tileCache.size>TILE_CACHE_LIMIT)tileCache.delete(tileCache.keys().next().value);
+  return obj;
+ }
  const townCache=new Map();
  function townPlan(town){
   if(townCache.has(town.id))return townCache.get(town.id);
@@ -260,5 +337,5 @@
   }
   const plan={roads,houses};townCache.set(town.id,plan);return plan;
  }
- return {VERSION,SEED,inside,height,biome,makeWorld,townPlan,segmentDistance};
+ return {VERSION,SEED,inside,height,biome,makeWorld,townPlan,localTile,segmentDistance};
 });
