@@ -64,6 +64,27 @@
   for(const p of towns)stops.set(p.id,[p.x,p.y]);
   const routes=[...main,...secondary,...access];
   const segments=roadSegments(routes),cells=new Map(),used=new Set();
+  // L'extrémité de la desserte est un point projeté, arrondi par le générateur.
+  // On le pose aussi comme sommet de la route principale correspondante pour
+  // que de faibles écarts numériques (≈ 0,001 unité) ne créent aucun village isolé.
+  const sourceSegments=new Map();
+  for(const seg of segments){
+    if(seg.kind==='desserte'||seg.kind==='access')continue;
+    if(!sourceSegments.has(seg.roadId))sourceSegments.set(seg.roadId,[]);
+    sourceSegments.get(seg.roadId).push(seg);
+  }
+  for(const feeder of secondary){
+    const end=xy(feeder.points[feeder.points.length-1]);
+    const candidates=sourceSegments.get(feeder.road_id)||[];
+    if(!candidates.length)throw Error('Axe de rattachement manquant pour '+feeder.id);
+    let best=null,segment=null;
+    for(const s of candidates){
+      const hit=project(end,s.a,s.b);
+      if(!best||hit.distance<best.distance){best=hit;segment=s}
+    }
+    if(best.distance>.01)throw Error('Desserte non superposée à la voie '+feeder.id);
+    segment.breaks.push({t:best.t,p:end});
+  }
   // Index spatial : évite une comparaison quadratique globale.
   for(let i=0;i<segments.length;i++){
    const seg=segments[i];
