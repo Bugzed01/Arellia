@@ -33,6 +33,10 @@ jobs:
         run: |
           node --check site/assets/arelia-display.js
           node src/maps/display_validate.cjs
+      - name: Valider la couverture géographique nationale
+        run: |
+          node --check site/assets/arelia-world.js
+          node src/maps/world_validate.cjs
       - name: Configurer GitHub Pages
         uses: actions/configure-pages@v5
       - name: Télécharger le site statique comme artefact
