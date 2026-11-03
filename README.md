@@ -99,3 +99,7 @@ Visuels originaux d'Arélia générés au cours de cette conversation ; contenus
 ## Vésone — plan organique v0.3
 
 La trame orthogonale initiale a été remplacée par 253 îlots irréguliers, 727 empreintes de bâtiments, 13 voies structurantes courbes, 7 canaux et 25 ponts alignés sur les croisements. Le générateur Python (`src/maps/vesone.py`) est déterministe ; il régénère `site/assets/vesone-city.json` à chaque publication. L'ensemble constitue une **fiction cartographique provisoire**, et non un cadastre ou une navigation métrique précise.
+
+### Vésone 0.4 — rues et quais organiques
+
+Le générateur Python définit désormais des îlots irréguliers, des parcelles alignées sur les axes proches, des ruelles, cinq places, des quais sur les deux rives des canaux, des arbres d'alignement et des empreintes de monuments. Ces détails sont **provisoires et fictifs** ; ils ne sont pas cadastraux. `python3 src/build.py` reconstruit le fichier généré `site/assets/vesone-city.json` lors du déploiement.

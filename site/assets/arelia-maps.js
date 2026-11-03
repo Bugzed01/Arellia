@@ -34,40 +34,76 @@
  }
  // Urban detail is drawn in world coordinates, on top of the national raster.
  function drawVesone(){
- const city=state.city,level=state.scale/state.baseScale;if(!city)return;
- const poly=(pts)=>{ctx.beginPath();pts.forEach(([x,y],i)=>i?ctx.lineTo(x,y):ctx.moveTo(x,y));ctx.closePath()};
- const paint=(pts,color,stroke=null,width=0)=>{if(!pts||pts.length<3)return;poly(pts);ctx.fillStyle=color;ctx.fill();if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=width;ctx.stroke()}};
- const waterway=(pts,color,width)=>{ctx.beginPath();pts.forEach(([x,y],i)=>i?ctx.lineTo(x,y):ctx.moveTo(x,y));ctx.lineWidth=width;ctx.lineCap='round';ctx.lineJoin='round';ctx.strokeStyle=color;ctx.stroke()};
- const night=state.style==='night';
- ctx.save();poly(city.outline);ctx.clip();paint(city.outline,night?'#52616b':'#e3dece');
- if(state.layers.urban){
-   if(level>=6)for(const block of city.blocks)paint(block.polygon,night?'#68676c':block.color,night?'#56616b':'#f9f6ed',.24);
-   if(level>=11)for(const building of city.buildings)paint(building.polygon,night?'#a7a29c':building.roof,night?'#747a78':'#a8a08f',.07);
+  const city=state.city,level=state.scale/state.baseScale;
+  if(!city)return;
+  const night=state.style==='night';
+  const trace=(pts,close=false)=>{
+    if(!pts||!pts.length)return;
+    ctx.beginPath();ctx.moveTo(pts[0][0],pts[0][1]);
+    for(let i=1;i<pts.length;i++)ctx.lineTo(pts[i][0],pts[i][1]);
+    if(close)ctx.closePath();
+  };
+  const fill=(pts,color,stroke=null,width=.14)=>{if(!pts||pts.length<3)return;trace(pts,true);ctx.fillStyle=color;ctx.fill();if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=width;ctx.stroke()}};
+  const smooth=(pts,color,width)=>{
+    if(!pts||pts.length<2)return;
+    ctx.beginPath();ctx.moveTo(pts[0][0],pts[0][1]);
+    if(pts.length===2)ctx.lineTo(pts[1][0],pts[1][1]);
+    else{
+      for(let i=1;i<pts.length-1;i++){
+        const mx=(pts[i][0]+pts[i+1][0])/2,my=(pts[i][1]+pts[i+1][1])/2;
+        ctx.quadraticCurveTo(pts[i][0],pts[i][1],mx,my);
+      }
+      ctx.lineTo(pts[pts.length-1][0],pts[pts.length-1][1]);
+    }
+    ctx.lineJoin='round';ctx.lineCap='round';ctx.lineWidth=width;ctx.strokeStyle=color;ctx.stroke();
+  };
+  ctx.save();trace(city.outline,true);ctx.clip();
+  fill(city.outline,night?'#52616b':'#e6dfcf');
+  if(state.layers.urban){
+    if(level>=6)for(const block of city.blocks)fill(block.polygon,night?'#66686b':block.color,night?'#555d60':'#f6f2e7',.17);
+    if(level>=11)for(const building of city.buildings)fill(building.polygon,night?'#a6a39d':building.roof,night?'#747976':'#b9ab99',.075);
+  }
+  for(const park of city.parks)fill(park.polygon,night?'#416554':'#91b79c',night?'#6b8472':'#b5cbaa',.18);
+  for(const square of city.squares||[])fill(square.polygon,night?'#9b8b74':'#e7ddca',night?'#c5b39d':'#cabb9e',.25);
+  if(state.layers.urban){
+    if(level>=13)for(const lane of city.lanes||[])smooth(lane.points,night?'#b8aba0':'#f9f5e9',.32);
+    for(const road of city.streets){
+      const w=road.class==='avenue'?1.5:road.class==='boulevard'?1.2:.68;
+      smooth(road.points,night?'#606d70':'#b5ab97',w+.35);
+      smooth(road.points,night?'#dfdbce':'#faf7ed',w);
+    }
+    for(const site of city.landmarks||[])fill(site.polygon,night?'#c19a65':'#dbab74',night?'#d4b48c':'#ac835d',.23);
+    if(level>=15){
+      ctx.fillStyle=night?'#5d9073':'#4d8768';
+      for(const [x,y] of city.trees||[]){ctx.beginPath();ctx.arc(x,y,.31,0,2*Math.PI);ctx.fill();}
+    }
+  }
+  if(state.layers.canals&&state.layers.water){
+    for(const bank of city.quays||[])smooth(bank.points,night?'#bfae9a':'#f8e6cd',.65);
+    for(const canal of city.canals){
+      smooth(canal.points,night?'#c9c3b7':'#f8efe0',canal.width+1.05);
+      smooth(canal.points,night?'#26677d':'#408fa9',canal.width);
+    }
+    for(const bridge of city.bridges){
+      ctx.save();ctx.translate(bridge.x,bridge.y);ctx.rotate(bridge.angle||0);
+      const w=bridge.width||1.3,s=bridge.span||3;
+      ctx.fillStyle=night?'#565f66':'#958779';ctx.fillRect(-s/2,-w*.7,s,w*1.4);
+      ctx.fillStyle=night?'#cfbea5':'#f6e6cb';ctx.fillRect(-s/2,-w/2,s,w);
+      ctx.restore();
+    }
+  }
+  ctx.restore();
+  if(state.layers.labels&&level>=19){
+    ctx.save();ctx.textAlign='center';ctx.textBaseline='middle';ctx.font=(level>=30?12:10)/state.scale+'px Arial';
+    for(const d of city.districts){
+      ctx.strokeStyle='rgba(250,250,241,.95)';ctx.lineWidth=3/state.scale;ctx.strokeText(d.name,d.center[0],d.center[1]);
+      ctx.fillStyle=night?'#e2e2da':'#3f5459';ctx.fillText(d.name,d.center[0],d.center[1]);
+    }
+    ctx.restore();
+  }
  }
- for(const park of city.parks)paint(park.polygon,night?'#406657':'#92b79a');
- if(state.layers.urban)for(const road of city.streets){
-   const w=road.class==='avenue'?1.45:road.class==='boulevard'?1.16:.7;
-   waterway(road.points,night?'#606d70':'#b5ad9c',w+.4);
-   waterway(road.points,night?'#e1ddcf':'#faf8ef',w);
- }
- if(state.layers.water&&state.layers.canals){
-   for(const canal of city.canals){waterway(canal.points,night?'#b4c5c4':'#f8eee1',canal.width+1.1);waterway(canal.points,night?'#25657a':'#408fa9',canal.width)}
-   for(const bridge of city.bridges){
-     ctx.save();ctx.translate(bridge.x,bridge.y);ctx.rotate(bridge.angle||0);
-     const w=bridge.width||1.3,s=bridge.span||3;
-     ctx.fillStyle=night?'#565f66':'#998b78';ctx.fillRect(-s/2,-w*.7,s,w*1.4);
-     ctx.fillStyle=night?'#cfbea5':'#f6e6cb';ctx.fillRect(-s/2,-w/2,s,w);
-     ctx.restore();
-   }
- }
- ctx.restore();
- if(state.layers.labels&&level>=19){
-   ctx.save();ctx.textAlign='center';ctx.textBaseline='middle';ctx.font=(level>=30?12:10)/state.scale+'px Arial';
-   for(const d of city.districts){ctx.strokeStyle='rgba(250,250,241,.95)';ctx.lineWidth=3/state.scale;ctx.strokeText(d.name,d.center[0],d.center[1]);ctx.fillStyle=night?'#e2e2da':'#3f5459';ctx.fillText(d.name,d.center[0],d.center[1])}
-   ctx.restore();
- }
-}
-function drawLabel(x,y,title,category='region'){const [sx,sy]=coord([x,y]);const [w,h]=getDim();if(sx<0||sy<0||sx>w||sy>h)return;ctx.save();ctx.setTransform(state.dpr,0,0,state.dpr,0,0);ctx.font=(category==='sea'?'italic 500 14px Georgia':'700 11px Arial');ctx.textAlign='center';ctx.lineWidth=3;ctx.strokeStyle='rgba(242,245,240,.8)';ctx.strokeText(title,sx,sy);ctx.fillStyle=category==='sea'?'#b8e3e3':'#475c55';ctx.fillText(title,sx,sy);ctx.restore()}
+ 
+ function drawLabel(x,y,title,category='region'){const [sx,sy]=coord([x,y]);const [w,h]=getDim();if(sx<0||sy<0||sx>w||sy>h)return;ctx.save();ctx.setTransform(state.dpr,0,0,state.dpr,0,0);ctx.font=(category==='sea'?'italic 500 14px Georgia':'700 11px Arial');ctx.textAlign='center';ctx.lineWidth=3;ctx.strokeStyle='rgba(242,245,240,.8)';ctx.strokeText(title,sx,sy);ctx.fillStyle=category==='sea'?'#b8e3e3':'#475c55';ctx.fillText(title,sx,sy);ctx.restore()}
  function drawRoute(){if(!state.route)return;const route=state.route;for(const e of route.edges){let a=state.data.places.find(p=>p.id===e[0]),b=state.data.places.find(p=>p.id===e[1]);if(!a||!b)continue;const mid=[(a.x+b.x)/2+(b.y-a.y)*.06,(a.y+b.y)/2+(a.x-b.x)*.06];const pts=[[a.x,a.y],mid,[b.x,b.y]];polyline(pts,'rgba(21,44,57,.65)',11);polyline(pts,'#f1a22e',6)} }
  function draw(){if(!state.data)return;const [w,h]=getDim();if(!w||!h)return;ctx.setTransform(state.dpr,0,0,state.dpr,0,0);ctx.fillStyle=state.style==='night'?'#0a283b':'#c0d5d9';ctx.fillRect(0,0,w,h);ctx.save();ctx.setTransform(state.dpr*state.scale,0,0,state.dpr*state.scale,state.tx*state.dpr,state.ty*state.dpr);
   const img=state.style==='plan'?plan:terrain;

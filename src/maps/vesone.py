@@ -150,11 +150,41 @@ def generate():
         for (x1,y1),(x2,y2) in zip(poly,poly[1:]+poly[:1]):
             if (y1>y)!=(y2>y) and x<(x2-x1)*(y-y1)/(y2-y1)+x1:inside=not inside
         return inside
-    blocks=[];buildings=[]
+    squares=[
+        dict(id='place-charte',name='Place de la Charte',polygon=curve([(-8,-4),(-2,-6),(3,-3),(4,2),(-2,5),(-7,1)])),
+        dict(id='place-halles',name='Place des Halles',polygon=curve([(23,16),(28,14),(32,18),(30,24),(25,24),(21,21)])),
+        dict(id='parvis-gare',name='Parvis de la Gare',polygon=curve([(-14,28),(-8,26),(-3,31),(-5,35),(-13,35)])),
+        dict(id='place-marees',name='Place des Marées',polygon=curve([(-35,-1),(-29,-3),(-25,2),(-30,8),(-36,6)])),
+        dict(id='parvis-palais',name='Parvis impérial',polygon=curve([(7,-3),(15,-4),(17,1),(14,6),(8,6)])),
+    ]
+    blocks=[];buildings=[];lanes=[];seen_edges=set()
+    # Rues de desserte non orthogonales, suivant les bordures des ilots.
+    for idx,poly in cells:
+        for a,b in zip(poly,poly[1:]+poly[:1]):
+            if math.hypot(b[0]-a[0],b[1]-a[1])<1.25:continue
+            key=tuple(sorted(((round(a[0],1),round(a[1],1)),(round(b[0],1),round(b[1],1)))))
+            if key in seen_edges:continue
+            seen_edges.add(key)
+            mid=p((a[0]+b[0])/2,(a[1]+b[1])/2)
+            if any(near_path(mid,c['points'],c['width']*.85) for c in canals):continue
+            if any(inpoly(mid,sq['polygon']) for sq in squares):continue
+            lanes.append(dict(points=[p(*a),p(*b)],kind='ruelle' if a[0]<-7 else 'passage'))
+
+    def road_axis(pt):
+        best=(1e30,1.,0.)
+        for road in streets:
+            for a,b in zip(road['points'],road['points'][1:]):
+                dist=dsegment(pt,a,b)
+                if dist<best[0]:
+                    length=math.hypot(b[0]-a[0],b[1]-a[1]) or 1
+                    best=(dist,(b[0]-a[0])/length,(b[1]-a[1])/length)
+        return best
+
     for index,poly in cells:
         cx,cy=centroid(poly)
         mid=[p(cx,cy)[0],p(cx,cy)[1]]
         if any(inpoly(mid,pk['polygon']) for pk in parks):continue
+        if any(inpoly(mid,sq['polygon']) for sq in squares):continue
         if any(near_path(mid,c['points'],c['width']*.9+.45) for c in canals):continue
         if math.hypot(cx,cy)<7:district='palatial'
         elif cx < -15 and abs(cy)<21:district='historical'
@@ -168,7 +198,12 @@ def generate():
         blocks.append(dict(id=f'block-{index:03d}',polygon=[p(x,y) for x,y in inset(poly,.975)],district=district,color=color))
         # Split true irregular parcels with bisectors. No fixed horizontal or vertical lattice.
         nplots=1 if abs(area(poly))<9 else 2 if abs(area(poly))<15 else 3 if abs(area(poly))<23 else 4
-        angle=rng.random()*TAU
+        distance,ux,uy=road_axis(p(cx,cy))
+        if distance>11:
+            a,b=max(zip(poly,poly[1:]+poly[:1]),key=lambda edge:math.hypot(edge[1][0]-edge[0][0],edge[1][1]-edge[0][1]))
+            length=math.hypot(b[0]-a[0],b[1]-a[1]) or 1
+            ux,uy=(b[0]-a[0])/length,(b[1]-a[1])/length
+        angle=math.atan2(uy,ux)+rng.uniform(-.08,.08)
         ux,uy=math.cos(angle),math.sin(angle)
         projections=[x*ux+y*uy for x,y in poly]
         lo,hi=min(projections),max(projections)
@@ -181,9 +216,48 @@ def generate():
             sub=inset(sub,rng.uniform(.81,.92))
             scx,scy=centroid(sub)
             if any(inpoly(p(scx,scy),pk['polygon']) for pk in parks):continue
+            if any(inpoly(p(scx,scy),sq['polygon']) for sq in squares):continue
             if any(near_path(p(scx,scy),c['points'],c['width']*.58+.35) for c in canals):continue
-            roof=['#bfae96','#d4bfa9','#c8b19c','#e2d2b7','#bcbaa8','#b1b7aa','#d7c7ae','#c4a995'][rng.randrange(8)]
+            palette={
+                'historical':['#c9aa91','#d8b9a1','#e6d2ba','#c4a48c','#e2c7aa'],
+                'palatial':['#e1d4bc','#cbbca0','#ddceb3'],
+                'civic':['#c5bfb1','#d4cbbb','#b5b1a5'],
+                'port':['#b1b5ab','#bdb6a8','#c9b9a3'],
+                'residential':['#d5baa4','#dac5ac','#cbb6a3','#e5d4bd'],
+                'park-edge':['#d3c6ab','#b9c0a4'],
+                'mixed':['#cdb99e','#d9c4a8','#decdb2','#c1b6a5'],
+            }
+            roof=rng.choice(palette[district])
             buildings.append(dict(polygon=[p(x,y) for x,y in sub],roof=roof,landuse=district))
+    quays=[]
+    for canal in canals:
+        pts=canal['points']
+        for sign in (-1,1):
+            offsetpoints=[]
+            for i,(x,y) in enumerate(pts):
+                a=pts[max(0,i-1)];b=pts[min(len(pts)-1,i+1)]
+                dx,dy=b[0]-a[0],b[1]-a[1];length=math.hypot(dx,dy) or 1
+                d=(canal['width']*.5+.75)*sign
+                offsetpoints.append([round(x-dy/length*d,3),round(y+dx/length*d,3)])
+            quays.append(dict(points=offsetpoints,kind='promenade' if canal['type']=='principal' else 'quai'))
+    trees=[]
+    for road in streets:
+        if road['class'] not in ('avenue','boulevard'):continue
+        for a,b in zip(road['points'],road['points'][1:]):
+            dx,dy=b[0]-a[0],b[1]-a[1];length=math.hypot(dx,dy)
+            if length<2:continue
+            for k in range(max(1,round(length/3.0))):
+                t=(k+.5)/max(1,round(length/3.0))
+                for side in (-1,1):
+                    x=a[0]+dx*t-side*dy/length*1.65;y=a[1]+dy*t+side*dx/length*1.65
+                    if ((x-CENTER[0])/RX)**2+((y-CENTER[1])/RY)**2>=.96:continue
+                    if any(near_path([x,y],c['points'],c['width']*.55+.55) for c in canals):continue
+                    if rng.random()>.78:trees.append([round(x,3),round(y,3)])
+    landmarks=[
+        dict(id='palais',name='Palais impérial',polygon=curve([(8,-1),(12,-2),(15,1),(13,4),(9,4),(7,1)])),
+        dict(id='gare',name='Gare centrale',polygon=curve([(-14,30),(-10,29),(-8,33),(-12,35)])),
+        dict(id='halles',name='Halles des Marchands',polygon=curve([(25,17),(28,17),(29,21),(25,21)])),
+    ]
     # Bridge decks exactly at crossings between major streets and canal centrelines.
     cross=[]
     for street_item in streets:
@@ -222,14 +296,19 @@ def generate():
     for d in districts:
         pois.append(dict(id='district-'+d['id'],name=d['name'],type='Quartier',category='quartier',x=d['center'][0],y=d['center'][1],
                          description=d['description'],district=d['name'],wiki='vesone',status='Proposition — non canonique'))
+    for sq in squares:
+        sx,sy=centroid(sq['polygon'])
+        pois.append(dict(id=sq['id'],name=sq['name'],type='Place publique',category='monument',
+                         x=round(sx,3),y=round(sy,3),district='Vésone',description='Espace public fictif, à confirmer.',
+                         wiki='vesone',status='Proposition — non canonique'))
     for b in bridges[:4]:
         pois.append(dict(id=b['id'],name=b['name'],type='Pont',category='pont',x=b['x'],y=b['y'],
                          description=b['description'],district='Vésone',wiki='vesone',status='Proposition — non canonique'))
     return {
-        'meta':{'name':'Vésone — plan organique','version':'0.3.0','status':'provisoire','coordinate_system':'Arélia Maps XY',
+        'meta':{'name':'Vésone — plan organique','version':'0.4.0','status':'provisoire','coordinate_system':'Arélia Maps XY',
                 'center':list(CENTER),'bounds':[p(-RX,-RY),p(RX,RY)],'seed':SEED,
                 'disclaimer':'Plan fictif de conception. La voirie et les bâtiments ne sont pas un cadastre.'},
-        'outline':outline,'districts':districts,'streets':streets,'canals':canals,'bridges':bridges,'parks':parks,'blocks':blocks,'buildings':buildings,'places':pois,
+        'outline':outline,'districts':districts,'streets':streets,'lanes':lanes,'canals':canals,'quays':quays,'bridges':bridges,'parks':parks,'squares':squares,'landmarks':landmarks,'trees':trees,'blocks':blocks,'buildings':buildings,'places':pois,
     }
 
 def write_city(destination):

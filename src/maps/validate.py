@@ -46,7 +46,10 @@ for name in ['arelia-terrain.webp','arelia-plan.webp','arelia-maps.css','arelia-
 print(f"Carte valide : {len(data['places'])} lieux, {len(city['places'])} lieux urbains, {len(city['streets'])} rues, {len(city['canals'])} canaux, {len(city['bridges'])} ponts; 1 M km².")
 
 # Organic urban atlas v0.3
-assert city['meta']['version']=='0.3.0'
+assert city['meta']['version']=='0.4.0'
 assert len(city['blocks'])>=200 and len(city['buildings'])>=600
 assert len(city['streets'])>=10 and len(city['canals'])>=5 and len(city['bridges'])>=10
 assert not any(s['id'].startswith(('rue-lat','rue-long')) for s in city['streets'])
+
+assert len(city['lanes'])>=500 and len(city['quays'])==2*len(city['canals'])
+assert len(city['squares'])==5 and len(city['trees'])>=80 and len(city['landmarks'])==3
