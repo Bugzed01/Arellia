@@ -274,13 +274,13 @@
     const count=kind==='prairie'?38:kind==='marais'?58:100;
     for(let k=0;k<count;k++){
       const x=ox+rand()*TILE,y=oy+rand()*TILE;
-      if(inside([x,y],geo.coastline))trees.push({x:round(x),y:round(y),r:round(.09+rand()*.36)});
+      if(isLand([x,y],geo))trees.push({x:round(x),y:round(y),r:round(.09+rand()*.36)});
     }
   }
   if(['roche','glacier','desert','steppe'].includes(kind)){
     for(let k=0;k<48;k++){
       const x=ox+rand()*TILE,y=oy+rand()*TILE;
-      if(!inside([x,y],geo.coastline))continue;
+      if(!isLand([x,y],geo))continue;
       rocks.push({x:round(x),y:round(y),size:round(.25+rand()*1.5),orientation:rand()*Math.PI});
     }
   }
@@ -293,7 +293,7 @@
     if(kind==='cultures'||kind==='prairie'){
       for(let k=0;k<4;k++){
         const x=ox+3+rand()*18,y=oy+3+rand()*18;
-        if(!inside([x,y],geo.coastline))continue;
+        if(!isLand([x,y],geo))continue;
         const ww=.25+rand()*.35,hh=.28+rand()*.45;
         farms.push({polygon:[[x-ww,y-hh],[x+ww,y-hh],[x+ww,y+hh],[x-ww,y+hh]].map(q=>point(...q))});
       }
