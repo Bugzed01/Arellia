@@ -432,11 +432,49 @@ def enrich_city(city):
     return city
 
 
+def prune_waterway_overlaps(city):
+    """Keep generated building footprints outside navigable canal corridors.
+
+    The spatial test uses polygon vertices, canal segment endpoints and exact
+    segment intersections, including a small bank clearance. It deliberately
+    does not erase entire blocks: buildings are attached to existing organic
+    parcels and street widths are handled in the cartographic rendering.
+    """
+    def segments_cross(a,b,c,d):
+        ux,uy=b[0]-a[0],b[1]-a[1]
+        vx,vy=d[0]-c[0],d[1]-c[1]
+        determinant=ux*vy-uy*vx
+        if abs(determinant)<1e-9:return False
+        dx,dy=c[0]-a[0],c[1]-a[1]
+        t=(dx*vy-dy*vx)/determinant
+        u=(dx*uy-dy*ux)/determinant
+        return 0<=t<=1 and 0<=u<=1
+    def intersects_canal(polygon,canal):
+        for a,b in zip(canal['points'],canal['points'][1:]):
+            radius=canal['width']*.5+.1
+            if any(dsegment(q,a,b)<radius for q in polygon):return True
+            for c,d in zip(polygon,polygon[1:]+polygon[:1]):
+                if segments_cross(a,b,c,d):return True
+                if dsegment(a,c,d)<radius or dsegment(b,c,d)<radius:return True
+        return False
+    before=len(city['buildings'])
+    city['buildings']=[
+        building for building in city['buildings']
+        if not any(intersects_canal(building['polygon'],canal) for canal in city['canals'])
+    ]
+    city['water_clearance']={'status':'vérifié pour les canaux générés','excluded_buildings':before-len(city['buildings']),
+                             'clearance_units':.1,'after':len(city['buildings'])}
+    stats={name:0 for name in city['landuse_stats']}
+    for building in city['buildings']:
+        stats[building['zone']]+=1
+    city['landuse_stats']=stats
+    return city
+
 def enrich_metropolitan(city):
     """Apply versioned source geography to the organic core without changing its streets."""
     overlay_path = Path(__file__).with_name('metro_overlay.json')
     overlay = json.loads(overlay_path.read_text(encoding='utf-8'))
-    assert overlay['metropolitan']['version'] == '0.9.0'
+    assert overlay['metropolitan']['version'] == '1.0.0'
     city['metropolitan'] = overlay['metropolitan']
     known = {place['id'] for place in city['places']}
     for place in overlay['places']:
@@ -444,14 +482,14 @@ def enrich_metropolitan(city):
             raise ValueError('Identifiant métropolitain dupliqué : ' + place['id'])
         city['places'].append(place)
         known.add(place['id'])
-    city['meta']['version'] = '0.9.0'
+    city['meta']['version'] = '1.0.0'
     city['meta']['disclaimer'] += ' Agglomération et transports régionaux schématiques.'
     return city
 
 def write_city(destination):
     destination=Path(destination)
     destination.parent.mkdir(parents=True,exist_ok=True)
-    result=enrich_metropolitan(enrich_city(generate()))
+    result=enrich_metropolitan(prune_waterway_overlaps(enrich_city(generate())))
     destination.write_text(json.dumps(result,ensure_ascii=False,separators=(',',':'))+'\n',encoding='utf-8')
     return result
 

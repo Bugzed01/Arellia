@@ -49,7 +49,7 @@ for name in ['arelia-terrain.webp','arelia-plan.webp','arelia-maps.css','arelia-
 print(f"Carte valide : {len(data['places'])} lieux, {len(city['places'])} lieux urbains, {len(city['streets'])} rues, {len(city['canals'])} canaux, {len(city['bridges'])} ponts; 1 M km².")
 
 # Organic urban atlas v0.3
-assert city['meta']['version']=='0.9.0'
+assert city['meta']['version']=='1.0.0'
 assert len(city['blocks'])>=200 and len(city['buildings'])>=600
 assert len(city['streets'])>=10 and len(city['canals'])>=5 and len(city['bridges'])>=10
 assert not any(s['id'].startswith(('rue-lat','rue-long')) for s in city['streets'])
@@ -68,7 +68,7 @@ assert all(len(r['points'])>=3 for r in city['transit_lines']+city['expressways'
 
 # V0.6: satellite centres, regional roads and express rail links.
 metro=city['metropolitan']
-assert metro['version']=='0.9.0'
+assert metro['version']=='1.0.0'
 assert len(metro['satellites'])==7
 assert len(metro['neighborhoods'])>=140
 assert len(metro['green_corridors'])>=4
@@ -150,3 +150,18 @@ for bridge in terrain['crossings']:
     assert bridge['kind']=='franchissement-indicatif'
 assert 'PAS une carte d’inondation' in terrain['disclaimer']
 print('Relief relatif et hydrographie v0.9 :',len(terrain['waterways']),'cours d’eau,',len(terrain['crossings']),'franchissements.')
+
+# V1.0 — no generated building footprint may occupy a generated canal corridor.
+assert city['water_clearance']['excluded_buildings']>0
+assert city['water_clearance']['after']==len(city['buildings'])
+assert len(city['buildings'])>=600
+for building in city['buildings']:
+    poly=building['polygon']
+    for canal in city['canals']:
+        for a,b in zip(canal['points'],canal['points'][1:]):
+            radius=canal['width']*.5+.1
+            assert all(dist_segment(q,a,b)>=radius-1e-8 for q in poly)
+            for c,d in zip(poly,poly[1:]+poly[:1]):
+                assert dist_segment(a,c,d)>=radius-1e-8
+                assert dist_segment(b,c,d)>=radius-1e-8
+print('Vésone 1.0 :',city['water_clearance']['excluded_buildings'],'bâtiments écartés des canaux.')
