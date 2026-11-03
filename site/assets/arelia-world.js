@@ -319,6 +319,60 @@
   if(tileCache.size>TILE_CACHE_LIMIT)tileCache.delete(tileCache.keys().next().value);
   return obj;
  }
+ // Bâtiments complémentaires calculés seulement dans les secteurs urbains visibles.
+ // Le filtrage évite les canaux, la voirie principale, les parcs et les empreintes
+ // déjà établies ; rien n'est ajouté au canon de l'univers.
+ const CITY_TILE=8,cityTileCache=new Map(),CITY_CACHE_LIMIT=180;
+ const baseBuildingCenters=new WeakMap();
+ function cityTile(city,i,j){
+  const key=city.id+':'+i+','+j;
+  if(cityTileCache.has(key)){const obj=cityTileCache.get(key);cityTileCache.delete(key);cityTileCache.set(key,obj);return obj;}
+  const ox=i*CITY_TILE,oy=j*CITY_TILE,center=[ox+4,oy+4];
+  const candidates=[[ox,oy],[ox+8,oy],[ox+8,oy+8],[ox,oy+8],center];
+  if(!candidates.some(p=>inside(p,city.outline)))return null;
+  const rand=rng((Math.imul(i+2048,1572869)^Math.imul(j+2048,991948530)^(city.id.length*29833)^SEED)>>>0);
+  const water=[...(city.water||[]),...(city.canals||[])];
+  const roads=[...(city.avenues||[]),...(city.streets||[]),...(city.expressways||[])];
+  const excluded=[...(city.parks||[]),...(city.harbourBasins||[]),...(city.portYards||[]),...(city.harbour_basins||[])];
+  if(!baseBuildingCenters.has(city)){
+   baseBuildingCenters.set(city,(city.buildings||[]).map(b=>b.center||[
+       b.polygon.reduce((v,p)=>v+p[0],0)/b.polygon.length,
+       b.polygon.reduce((v,p)=>v+p[1],0)/b.polygon.length
+   ]));
+  }
+  const existing=baseBuildingCenters.get(city),accepted=[],houses=[];
+  const waterConflict=p=>water.some(r=>r.points.slice(1).some((q,k)=>segmentDistance(p,r.points[k],q).distance<(r.width||2)*.5+.6));
+  function closestRoad(p){
+   let best=null;
+   for(const road of roads)for(let k=1;k<road.points.length;k++){
+     const seg=segmentDistance(p,road.points[k-1],road.points[k]);
+     if(!best||seg.distance<best.distance)best={distance:seg.distance,angle:Math.atan2(road.points[k][1]-road.points[k-1][1],road.points[k][0]-road.points[k-1][0])};
+   }
+   return best;
+  }
+  const maxCount=city.id==='vesone'?74:92;
+  for(let attempt=0;attempt<380&&houses.length<maxCount;attempt++){
+    const x=ox+.25+rand()*7.5,y=oy+.25+rand()*7.5,p=[x,y];
+    if(!inside(p,city.outline))continue;
+    if(excluded.some(k=>inside(p,k.polygon)))continue;
+    if(waterConflict(p))continue;
+    const roadway=closestRoad(p);
+    if(roadway&&(roadway.distance<.58||roadway.distance>5.2))continue;
+    if(existing.some(q=>Math.abs(q[0]-x)<1.2&&Math.abs(q[1]-y)<1.2&&distance(q,p)<1.4))continue;
+    if(accepted.some(q=>Math.abs(q[0]-x)<.7&&Math.abs(q[1]-y)<.7&&distance(q,p)<.78))continue;
+    const angle=roadway?roadway.angle:(rand()-.5)*1.3;
+    const width=.13+rand()*.22,height=.14+rand()*.24;
+    const poly=[[-width,-height],[width,-height],[width,height],[-width,height]].map(([u,v])=>point(x+u*Math.cos(angle)-v*Math.sin(angle),y+u*Math.sin(angle)+v*Math.cos(angle)));
+    if(poly.some(q=>!inside(q,city.outline)||waterConflict(q)||excluded.some(k=>inside(q,k.polygon))))continue;
+    accepted.push(p);
+    const roofs=city.id==='vesone'?['#c6b4a0','#b7ad98','#d8c3a8']:city.theme==='baie'?['#e5c8ad','#d2b9a2','#e7d1b2']:city.theme==='nordique'?['#bac7c5','#c6bcb0','#aebbbb']:['#d3c4a9','#c3b8a4','#b4c2b9'];
+    houses.push({polygon:poly,roof:roofs[Math.floor(rand()*roofs.length)]});
+  }
+  const result={cityId:city.id,i,j,buildings:houses,status:'procédural non canonique'};
+  cityTileCache.set(key,result);
+  if(cityTileCache.size>CITY_CACHE_LIMIT)cityTileCache.delete(cityTileCache.keys().next().value);
+  return result;
+ }
  const townCache=new Map();
  function townPlan(town){
   if(townCache.has(town.id))return townCache.get(town.id);
@@ -337,5 +391,5 @@
   }
   const plan={roads,houses};townCache.set(town.id,plan);return plan;
  }
- return {VERSION,SEED,inside,height,biome,makeWorld,townPlan,localTile,segmentDistance};
+ return {VERSION,SEED,inside,height,biome,makeWorld,townPlan,localTile,cityTile,segmentDistance};
 });
