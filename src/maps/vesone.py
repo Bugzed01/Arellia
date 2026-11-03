@@ -1,141 +1,244 @@
-"""Plan urbain reproductible et provisoire de Vésone, en coordonnées fictives d'Arélia Maps.
+"""Arélia Maps: Vésone, a reproducible fictional organic city plan.
 
-Ne pas confondre ces données avec un véritable cadastre ou un réseau viaire validé.
-Aucune dépendance externe ; appelé lors de chaque génération du portail.
+All geometry is in the invented, local Arélia XY reference system.
+This is cartographic/worldbuilding design, NOT surveyed cadastral data.
+No third-party runtime dependencies, compatible with GitHub Pages build.
 """
 from __future__ import annotations
-import json
-import math
+import json, math, random
 from pathlib import Path
 
-CENTER = (1110, 698)
-RX, RY = 57, 44
+CENTER=(1110.,698.)
+RX,RY=57.,44.
+SEED=20261103
+TAU=2*math.pi
 
-def p(x, y):
-    return [round(CENTER[0]+x, 2), round(CENTER[1]+y, 2)]
+def p(x,y):return [round(CENTER[0]+x,3),round(CENTER[1]+y,3)]
+def curve(points):return [p(x,y) for x,y in points]
+def ellipse(rx,ry,n=110,phase=0,begin=0,end=TAU):
+    out=[]
+    for i in range(n+1):
+        a=begin+(end-begin)*i/n
+        wobble=1+.024*math.sin(5*a+.4)+.015*math.sin(9*a+1.8)
+        out.append(p(rx*math.cos(a)*wobble,ry*math.sin(a)*wobble))
+    return out
 
-def loop(rx, ry, offset=0, start=0, finish=2*math.pi, count=80):
-    return [p(rx*math.cos(start+(finish-start)*i/count)+1.1*math.sin(3*(start+(finish-start)*i/count)+offset),
-              ry*math.sin(start+(finish-start)*i/count)+0.7*math.cos(2*(start+(finish-start)*i/count))+offset)
-            for i in range(count+1)]
+def area(poly):return .5*sum(x*y2-x2*y for (x,y),(x2,y2) in zip(poly,poly[1:]+poly[:1]))
+def centroid(poly):
+    if not poly:return (0.,0.)
+    a=area(poly)
+    if abs(a)<1e-8:return (sum(x for x,y in poly)/len(poly),sum(y for x,y in poly)/len(poly))
+    cx=sum((x+x2)*(x*y2-x2*y) for (x,y),(x2,y2) in zip(poly,poly[1:]+poly[:1]))/(6*a)
+    cy=sum((y+y2)*(x*y2-x2*y) for (x,y),(x2,y2) in zip(poly,poly[1:]+poly[:1]))/(6*a)
+    return cx,cy
+
+def clip(poly,a,b,c):
+    """Retain ax+by<=c; exact convex clipping, preserving street-cell adjacency."""
+    if not poly:return []
+    out=[];prev=poly[-1];pv=a*prev[0]+b*prev[1]-c
+    for nxt in poly:
+        nv=a*nxt[0]+b*nxt[1]-c
+        if (pv<=0)!=(nv<=0):
+            t=pv/(pv-nv)
+            out.append((prev[0]+t*(nxt[0]-prev[0]),prev[1]+t*(nxt[1]-prev[1])))
+        if nv<=0:out.append(nxt)
+        prev,pv=nxt,nv
+    return out
+
+def inset(poly,scale):
+    cx,cy=centroid(poly)
+    return [(cx+(x-cx)*scale,cy+(y-cy)*scale) for x,y in poly]
+
+def dsegment(pt,a,b):
+    vx,vy=b[0]-a[0],b[1]-a[1]
+    t=max(0.,min(1.,((pt[0]-a[0])*vx+(pt[1]-a[1])*vy)/(vx*vx+vy*vy+1e-8)))
+    return math.hypot(pt[0]-(a[0]+vx*t),pt[1]-(a[1]+vy*t))
+
+def near_path(pt,path,threshold):
+    return any(dsegment(pt,a,b)<threshold for a,b in zip(path,path[1:]))
+
+def crossing(a,b,c,d):
+    ax,ay=a;bx,by=b;cx,cy=c;dx,dy=d
+    r=(bx-ax,by-ay);s=(dx-cx,dy-cy);det=r[0]*s[1]-r[1]*s[0]
+    if abs(det)<1e-8:return None
+    u=((cx-ax)*s[1]-(cy-ay)*s[0])/det
+    v=((cx-ax)*r[1]-(cy-ay)*r[0])/det
+    if 0<=u<=1 and 0<=v<=1:return ax+u*r[0],ay+u*r[1],math.atan2(r[1],r[0])
+    return None
+
+def ring(rx,ry,start=0,end=TAU,n=90,phase=.3):
+    pts=[]
+    for i in range(n+1):
+        a=start+(end-start)*i/n
+        modulation=1+.065*math.sin(3*a+phase)+.035*math.cos(7*a+.4)
+        pts.append((rx*modulation*math.cos(a),ry*modulation*math.sin(a)))
+    return pts
 
 def generate():
-    canals = [
-        {'id':'grand-canal','name':'Grand Canal Impérial','type':'principal','width':7.2,
-         'points':[p(*v) for v in [(-59,18),(-47,14),(-37,10),(-28,13),(-16,9),(-4,5),(8,3),(19,7),(32,8),(44,13),(60,13)]]},
-        {'id':'canal-orelys','name':'Canal d’Orélys','type':'principal','width':5.2,
-         'points':[p(*v) for v in [(-23,-49),(-23,-38),(-19,-29),(-21,-20),(-17,-9),(-12,0),(-16,9)]]},
-        {'id':'canal-marchands','name':'Canal des Marchands','type':'secondaire','width':3.2,
-         'points':[p(*v) for v in [(9,-35),(7,-22),(10,-10),(8,3),(3,17),(5,37)]]},
-        {'id':'canal-jardins','name':'Canal des Jardins','type':'secondaire','width':2.7,
-         'points':[p(*v) for v in [(-37,-9),(-27,-6),(-19,-8),(-6,-15),(9,-17),(26,-14),(39,-9)]]},
-        {'id':'canal-quais','name':'Canal des Quais','type':'secondaire','width':3.0,
-         'points':[p(*v) for v in [(-32,33),(-20,28),(-5,27),(11,28),(25,32),(39,30)]]},
-        {'id':'canal-palais','name':'Canal du Palais','type':'secondaire','width':2.9,
-         'points':[p(*v) for v in [(19,-29),(22,-18),(28,-7),(31,9),(29,23)]]},
-        {'id':'ceinture-eau','name':'Ceinture des Îles','type':'secondaire','width':2.6,
-         'points':loop(29,22,0,0,2*math.pi,80)},
+    rng=random.Random(SEED)
+    # The waterways predate the roads; they determine the medieval urban silhouette.
+    canals=[
+      dict(id='grand-canal',name='Grand Canal Impérial',type='principal',width=2.8,points=curve([(-62,10),(-54,12),(-47,11),(-39,7),(-33,6),(-27,10),(-19,12),(-11,9),(-3,3),(5,0),(13,3),(21,8),(29,10),(39,7),(48,9),(63,13)])),
+      dict(id='orelys',name='Canal d’Orélys',type='principal',width=2.25,points=curve([(-24,-52),(-23,-43),(-26,-35),(-27,-27),(-21,-19),(-22,-11),(-17,-3),(-19,11)])),
+      dict(id='marchands',name='Canal des Marchands',type='secondaire',width=1.55,points=curve([(18,-46),(16,-36),(12,-27),(10,-18),(13,-9),(13,3),(8,13),(5,21),(7,37),(9,45)])),
+      dict(id='jardins',name='Canal des Jardins',type='secondaire',width=1.3,points=curve([(-42,-11),(-34,-8),(-25,-10),(-17,-14),(-10,-13),(-3,-18),(7,-18),(16,-16),(25,-19),(37,-22),(48,-19)])),
+      dict(id='quais',name='Canal des Quais',type='secondaire',width=1.6,points=curve([(-36,34),(-29,31),(-19,28),(-7,30),(3,33),(14,31),(25,34),(39,33),(52,29)])),
+      dict(id='bassin-iles',name='Canal des Îlots',type='secondaire',width=1.3,points=curve([(-8,-9),(-4,-5),(2,-7),(10,-6),(18,-1),(20,7),(15,15),(8,17),(0,16),(-7,12),(-8,3),(-8,-9)])),
+      dict(id='canal-delta',name='Bras du Levant',type='secondaire',width=1.95,points=curve([(28,10),(32,17),(39,21),(49,22),(60,25)])),
     ]
-    districts = [
-        {'id':'ile-palais','name':'Île du Palais','center':p(8,3),'color':'#ddc9a4', 'description':'Cœur monumental et institutionnel, parcouru de ponts et de places.'},
-        {'id':'vieux-canaux','name':'Vieux-Canaux','center':p(-19,8),'color':'#e7d7b6','description':'Ruelles, quais historiques et petits canaux du vieux centre.'},
-        {'id':'marchands','name':'Quartier des Marchands','center':p(27,17),'color':'#dfc6a8','description':'Halles, marchés et quais commerciaux.'},
-        {'id':'jardins','name':'Jardins d’Orélys','center':p(-14,-28),'color':'#cbd9bd','description':'Promenades plantées le long du canal d’Orélys.'},
-        {'id':'ambassades','name':'Cité des Ambassades','center':p(28,-22),'color':'#e5d3ba','description':'Institutions diplomatiques et boulevards arborés.'},
-        {'id':'rive-ouest','name':'Rive Occidentale','center':p(-42,-7),'color':'#e3cfaf','description':'Quartier résidentiel et universitaire sur la rive occidentale.'},
-        {'id':'port-est','name':'Quais de l’Est','center':p(42,27),'color':'#d2d9d0','description':'Bassins portuaires et accès maritimes de la capitale.'},
+    districts=[
+      dict(id='ile-palais',name='Île du Palais',center=p(7,5),color='#d7c4a3',description='Couronne monumentale, places historiques et canaux'),
+      dict(id='vieux-canaux',name='Vieux-Canaux',center=p(-26,8),color='#e6d3b1',description='Ruelles anciennes et façades sur les quais'),
+      dict(id='marchands',name='Quartier des Marchands',center=p(34,15),color='#dccab2',description='Halles, entrepôts réhabilités et bassins'),
+      dict(id='jardins',name='Jardins d’Orélys',center=p(-13,-29),color='#b4c6ab',description='Jardins et promenades longeant l’eau'),
+      dict(id='ambassades',name='Cité des Ambassades',center=p(30,-24),color='#decfb9',description='Grands hôtels et îlots institutionnels'),
+      dict(id='rive-ouest',name='Rive Occidentale',center=p(-44,-7),color='#d9c8af',description='Faubourgs, universités et rues étroites'),
+      dict(id='port-est',name='Quais de l’Est',center=p(43,30),color='#cdd7d2',description='Quais de commerce et liaisons maritimes'),
     ]
+    outline=ellipse(RX,RY,120)
+    bounds=[(-RX*math.cos(i*TAU/96),-RY*math.sin(i*TAU/96)) for i in range(96)]
+    # A Poisson-like scatter creates an irregular tessellation, not a rectangular grid.
+    seeds=[]
+    for trial in range(32000):
+        x=rng.uniform(-RX,RX); y=rng.uniform(-RY,RY)
+        if (x/RX)**2+(y/RY)**2>.985:continue
+        radius=math.hypot(x/60,y/48)
+        min_dist=2.6 if radius<.29 else 3.25 if radius<.55 else 4.15 if radius<.79 else 5.3
+        min_dist*=rng.uniform(.88,1.09)
+        if all((x-x2)**2+(y-y2)**2>min_dist**2 for x2,y2 in seeds):seeds.append((x,y))
+        if len(seeds)>=430:break
+    # Convex Voronoi cells are clipped by the city's shoreline outline.
+    cells=[]
+    for i,(sx,sy) in enumerate(seeds):
+        polygon=bounds[:]
+        for j,(ox,oy) in enumerate(seeds):
+            if i==j:continue
+            vx,vy=ox-sx,oy-sy
+            if vx*vx+vy*vy>28*28:continue
+            polygon=clip(polygon,vx,vy,(ox*ox+oy*oy-sx*sx-sy*sy)/2)
+            if len(polygon)<3:break
+        if len(polygon)<3 or abs(area(polygon))<.35:continue
+        cells.append((i,polygon))
+    # Roads obey medieval topography: winding boulevards and non-concentric partial belts.
     streets=[]
-    # Une trame dense avec inflexions : les tronçons ne revendiquent aucune précision cadastrale.
-    for j in range(-8,9):
-        yy=j*5.0
-        max_x=RX*math.sqrt(max(.01,1-(yy/RY)**2))
-        if max_x<11:continue
-        pts=[]
-        for i in range(17):
-            xx=-max_x+(2*max_x)*i/16
-            pts.append(p(xx,yy+0.62*math.sin((xx+23)/11+j*.8)))
-        streets.append({'id':f'rue-lat-{j+8:02d}',
-                        'name':{0:'Boulevard de la Concorde',-4:'Rue des Verriers',3:'Rue des Tisserands',6:'Avenue des Jardins',-7:'Promenade des Platanes'}.get(j,f'Rue transversale {j+9:02d}'),
-                        'class':'boulevard' if j in (0,-4,6) else 'rue','points':pts})
-    for i in range(-11,12):
-        xx=i*4.8
-        max_y=RY*math.sqrt(max(.01,1-(xx/RX)**2))
-        if max_y<9:continue
-        pts=[]
-        for j in range(15):
-            yy=-max_y+(2*max_y)*j/14
-            pts.append(p(xx+0.65*math.sin((yy+41)/9+i*.7),yy))
-        streets.append({'id':f'rue-long-{i+11:02d}',
-                        'name':{0:'Avenue Impériale',-5:'Rue des Archives',5:'Boulevard des Ambassades',-9:'Rue de la Rive'}.get(i,f'Rue longitudinale {i+12:02d}'),
-                        'class':'avenue' if i in (0,-5,5) else 'rue','points':pts})
-    for i,(name,angles) in enumerate([
-        ('Avenue du Palais',(-160,17)),('Avenue de l’Est',(-17,162)),('Avenue du Nord',(-87,92)),
-        ('Avenue de la Charte',(-139,41)),('Promenade des Quais',(-44,136))]):
-        a,b=angles
-        pts=[]
-        for k in range(18):
-            t=k/17
-            ang=math.radians(a+(b-a)*t)
-            radius=7+47*t
-            pts.append(p(radius*math.cos(ang),radius*.77*math.sin(ang)))
-        streets.append({'id':f'avenue-{i}','name':name,'class':'avenue','points':pts})
-    for idx,(name,radius) in enumerate([('Boulevard intérieur',15),('Boulevard des Îles',34),('Périphérique vert',49)]):
-        streets.append({'id':f'anneau-{idx}','name':name,'class':'boulevard','points':loop(radius,radius*.74,0,0,2*math.pi,90)})
-    bridges=[
-        ('Pont de la Charte',-31,11,'pont-monument'),('Pont des Verriers',-22,11,'pont'),('Pont des Lettres',-11,8,'pont'),
-        ('Pont du Palais',6,3,'pont-monument'),('Pont des Marchands',21,7,'pont'),('Pont des Quais',38,11,'pont'),
-        ('Pont du Levant',48,14,'pont'),('Pont d’Orélys',-21,-25,'pont'),('Pont des Jardins',-20,-9,'pont'),
-        ('Pont de la Concorde',7,-12,'pont'),('Pont de la Gare',9,17,'pont'),('Pont des Tisserands',27,24,'pont'),
-        ('Passerelle des Archives',28,-5,'passerelle'),('Passerelle de l’Îlot',-1,26,'passerelle')]
-    bridges=[{'id':f'bridge-{i:02d}','name':name,'x':p(x,y)[0],'y':p(x,y)[1],
-              'type':typ,'category':'pont','description':'Ouvrage de franchissement des canaux de Vésone (tracé provisoire).'}
-             for i,(name,x,y,typ) in enumerate(bridges)]
+    def street(ident,name,typ,pts):streets.append(dict(id=ident,name=name,**{'class':typ},points=curve(pts)))
+    street('rives-ouest','Route des Rives','avenue',[(-61,-10),(-47,-16),(-36,-20),(-27,-16),(-16,-22),(-8,-28),(4,-32),(20,-33),(38,-32),(55,-22)])
+    street('axe-palais','Promenade de la Charte','boulevard',[(-56,-2),(-43,-1),(-30,-3),(-16,-5),(-7,-1),(4,1),(16,-3),(29,-5),(41,-3),(56,0)])
+    street('nord-ancien','Rue des Verriers','rue',[(-49,-29),(-40,-23),(-31,-24),(-24,-19),(-16,-20),(-11,-11),(-5,-13),(2,-11)])
+    street('avenue-imperiale','Avenue Impériale','avenue',[(2,-48),(0,-39),(3,-30),(5,-22),(3,-13),(2,-3),(1,8),(1,23),(-1,35),(0,47)])
+    street('ambassades','Boulevard des Ambassades','boulevard',[(30,-41),(32,-33),(27,-25),(34,-17),(37,-10),(36,-1),(41,7),(42,20),(46,37)])
+    street('tisserands','Rue des Tisserands','rue',[(-45,25),(-38,20),(-29,19),(-25,22),(-16,18),(-10,23),(-3,20),(7,22),(15,26),(22,23),(29,27)])
+    street('levants','Avenue du Levant','avenue',[(-52,31),(-41,26),(-29,27),(-16,33),(-4,35),(8,36),(25,38),(42,34),(55,31)])
+    street('gare','Avenue de la Gare','boulevard',[(-24,47),(-21,36),(-16,29),(-14,21),(-9,11),(-4,0),(6,-9),(17,-16)])
+    street('universite','Rue de l’Université','rue',[(-56,-31),(-44,-20),(-41,-12),(-39,-3),(-43,8),(-39,17),(-35,30)])
+    street('quais','Boulevard des Quais','boulevard',[(49,-34),(53,-26),(50,-17),(52,-7),(52,4),(50,14),(50,25),(53,35)])
+    for n,(name,rx,ry,first,last) in enumerate([
+        ('Promenade des Anciens Remparts',20,15,.35,5.5),
+        ('Ceinture des Faubourgs',39,30,2.2,8.1),
+        ('Boulevard des Collines',50,37,4.2,9.4)]):
+        street(f'courbe-{n}',name,'boulevard',ring(rx,ry,first,last,80,phase=n*.7))
     parks=[
-        {'name':'Parc des Archives','polygon':[p(-47,-22),p(-30,-24),p(-28,-35),p(-44,-37)]},
-        {'name':'Jardins du Canal','polygon':[p(-5,-33),p(9,-36),p(14,-27),p(0,-23)]},
-        {'name':'Parc des Ambassades','polygon':[p(32,-31),p(45,-29),p(46,-17),p(33,-17)]},
-        {'name':'Square du Levant','polygon':[p(34,27),p(46,27),p(45,35),p(33,36)]},
-        {'name':'Jardins du Palais','polygon':[p(2,-5),p(15,-6),p(17,0),p(5,2)]},
+        dict(name='Parc des Archives',polygon=curve([(-49,-27),(-41,-30),(-34,-34),(-38,-40),(-50,-35)])),
+        dict(name='Jardins d’Orélys',polygon=curve([(-12,-35),(-1,-39),(7,-35),(10,-25),(0,-23),(-11,-26)])),
+        dict(name='Jardins des Ambassades',polygon=curve([(28,-36),(39,-35),(46,-28),(41,-20),(32,-22),(26,-30)])),
+        dict(name='Promenade des Tilleuls',polygon=curve([(34,29),(46,27),(51,34),(43,39),(35,38)])),
+        dict(name='Esplanade du Palais',polygon=curve([(1,-7),(10,-9),(16,-4),(15,3),(8,5),(1,0)])),
+        dict(name='Jardins des Archives',polygon=curve([(-29,22),(-20,19),(-16,27),(-22,34),(-31,30)])),
     ]
+    def inpoly(pt,poly):
+        x,y=pt;inside=False
+        for (x1,y1),(x2,y2) in zip(poly,poly[1:]+poly[:1]):
+            if (y1>y)!=(y2>y) and x<(x2-x1)*(y-y1)/(y2-y1)+x1:inside=not inside
+        return inside
+    blocks=[];buildings=[]
+    for index,poly in cells:
+        cx,cy=centroid(poly)
+        mid=[p(cx,cy)[0],p(cx,cy)[1]]
+        if any(inpoly(mid,pk['polygon']) for pk in parks):continue
+        if any(near_path(mid,c['points'],c['width']*.9+.45) for c in canals):continue
+        if math.hypot(cx,cy)<7:district='palatial'
+        elif cx < -15 and abs(cy)<21:district='historical'
+        elif cx>20 and cy<0:district='civic'
+        elif cx>20 and cy>8:district='port'
+        elif cx<5 and cy < -14:district='park-edge'
+        elif math.hypot(cx/57,cy/44)>.73:district='residential'
+        else:district='mixed'
+        color={'historical':'#ddceb8','palatial':'#e0d1b6','civic':'#e2d7c1','port':'#d2c6b4',
+               'residential':'#e6d9c6','park-edge':'#d9dbc5','mixed':'#e0d1bb'}[district]
+        blocks.append(dict(id=f'block-{index:03d}',polygon=[p(x,y) for x,y in inset(poly,.975)],district=district,color=color))
+        # Split true irregular parcels with bisectors. No fixed horizontal or vertical lattice.
+        nplots=1 if abs(area(poly))<9 else 2 if abs(area(poly))<15 else 3 if abs(area(poly))<23 else 4
+        angle=rng.random()*TAU
+        ux,uy=math.cos(angle),math.sin(angle)
+        projections=[x*ux+y*uy for x,y in poly]
+        lo,hi=min(projections),max(projections)
+        for k in range(nplots):
+            left=lo+(hi-lo)*k/nplots+.10
+            right=lo+(hi-lo)*(k+1)/nplots-.10
+            if right<=left:continue
+            sub=clip(clip(poly,-ux,-uy,-left),ux,uy,right)
+            if len(sub)<3 or abs(area(sub))<.40:continue
+            sub=inset(sub,rng.uniform(.81,.92))
+            scx,scy=centroid(sub)
+            if any(inpoly(p(scx,scy),pk['polygon']) for pk in parks):continue
+            if any(near_path(p(scx,scy),c['points'],c['width']*.58+.35) for c in canals):continue
+            roof=['#bfae96','#d4bfa9','#c8b19c','#e2d2b7','#bcbaa8','#b1b7aa','#d7c7ae','#c4a995'][rng.randrange(8)]
+            buildings.append(dict(polygon=[p(x,y) for x,y in sub],roof=roof,landuse=district))
+    # Bridge decks exactly at crossings between major streets and canal centrelines.
+    cross=[]
+    for street_item in streets:
+        sp=street_item['points']
+        for canal in canals:
+            if canal['id']=='bassin-iles':continue
+            cp=canal['points']
+            for a,b in zip(sp,sp[1:]):
+                for c,d in zip(cp,cp[1:]):
+                    item=crossing(a,b,c,d)
+                    if item and all(math.hypot(item[0]-z['x'],item[1]-z['y'])>3.3 for z in cross):
+                        cross.append(dict(x=round(item[0],3),y=round(item[1],3),angle=round(item[2],5),
+                                          span=canal['width']+1.5,width=1.30,canal=canal['id']))
+    cross.sort(key=lambda q:(q['y'],q['x']))
+    bridge_names=['Pont d’Orélys','Pont des Jardins','Pont des Verriers','Pont de la Charte','Pont des Marchands','Pont du Palais','Pont du Levant','Pont des Archives','Pont des Tisserands','Pont de la Gare','Pont du Marché','Pont des Quais','Passerelle des Ambassades','Pont des Marées','Pont du Forum','Pont des Halles']
+    bridges=[]
+    for idx,z in enumerate(cross[:25]):
+        bridges.append(dict(id=f'bridge-{idx:02d}',name=bridge_names[idx%len(bridge_names)],type='Pont',category='pont',
+                     description='Traversée située sur un croisement de voie et de canal (tracé proposé).',**z))
     sites=[
-        ('palais','Palais impérial','monument',11,-1,'Île du Palais','Siège symbolique de la Couronne ; dénomination et emplacement proposés.'),
-        ('forum','Forum de la Charte','monument',-1,1,'Île du Palais','Grande place de rassemblement institutionnel, en conception.'),
-        ('cathedrale','Basilique des Marées','monument',-29,5,'Vieux-Canaux','Monument historique proposé dans le vieux centre.'),
-        ('archives','Archives impériales','monument',-18,-17,'Rive Occidentale','Bibliothèque et archives de l’Empire, en conception.'),
-        ('halles','Halles des Marchands','monument',24,20,'Quartier des Marchands','Marchés couverts au débouché du Grand Canal.'),
-        ('gare','Gare centrale de Vésone','transport',-8,31,'Vieux-Canaux','Pôle ferroviaire et fluvial de la capitale, à confirmer.'),
-        ('opera','Opéra des Canaux','monument',7,-20,'Cité des Ambassades','Équipement culturel imaginaire, emplacement proposé.'),
-        ('universite','Université du Levant','monument',-42,-8,'Rive Occidentale','Campus urbain de la rive occidentale, en conception.'),
-        ('port','Port du Levant','transport',43,25,'Quais de l’Est','Bassins et quais reliant Vésone aux autres ports de l’île.'),
-        ('serres','Serres d’Orélys','nature',-8,-31,'Jardins d’Orélys','Jardin botanique et promenades à proximité des canaux.'),
-        ('observatoire','Observatoire des Marées','monument',40,-13,'Cité des Ambassades','Institut d’étude des courants et du littoral, proposé.'),
+        ('palais','Palais impérial','monument',11,-1,'Île du Palais','Siège symbolique de la Couronne ; position proposée.'),
+        ('forum','Forum de la Charte','monument',-1,1,'Île du Palais','Esplanade institutionnelle en conception.'),
+        ('basilique','Basilique des Marées','monument',-31,4,'Vieux-Canaux','Monument historique imaginé dans les rues anciennes.'),
+        ('archives','Archives impériales','monument',-17,-17,'Rive Occidentale','Bibliothèque et archives publiques de l’Empire.'),
+        ('halles','Halles des Marchands','monument',27,20,'Quartier des Marchands','Marché couvert du débouché du Grand Canal.'),
+        ('gare','Gare centrale de Vésone','transport',-8,31,'Vieux-Canaux','Gare à correspondances ferroviaires et fluviales.'),
+        ('opera','Opéra des Canaux','monument',5,-21,'Cité des Ambassades','Équipement culturel et scène lyrique.'),
+        ('universite','Université du Levant','monument',-43,-8,'Rive Occidentale','Campus urbain proche de l’ancienne rive.'),
+        ('port','Port du Levant','transport',46,27,'Quais de l’Est','Bassins maritimes et quais commerciaux.'),
+        ('serres','Serres d’Orélys','nature',-7,-30,'Jardins d’Orélys','Jardin botanique et promenade arborée.'),
+        ('observatoire','Observatoire des Marées','monument',42,-13,'Cité des Ambassades','Institut de recherche du littoral.'),
     ]
-    pois=[{'id':'v-'+ident,'name':name,'type':('Équipement de transport' if typ=='transport' else 'Jardin' if typ=='nature' else 'Monument et patrimoine'),
-          'category':typ,'x':p(x,y)[0],'y':p(x,y)[1], 'district':district,
-          'description':desc,'wiki':'vesone','status':'Proposition — non canonique'}
-         for ident,name,typ,x,y,district,desc in sites]
-    for dist in districts:
-        pois.append({'id':'district-'+dist['id'],'name':dist['name'],'type':'Quartier','category':'quartier',
-                     'x':dist['center'][0],'y':dist['center'][1],'description':dist['description'],
-                     'district':dist['name'],'wiki':'vesone','status':'Proposition — non canonique'})
-    for b in bridges:
-        if b['type']=='pont-monument':
-            pois.append({**b,'type':'Pont','district':'Vésone','wiki':'vesone','status':'Proposition — non canonique'})
-    data={
-        'meta':{'name':'Plan de Vésone','version':'0.2.0','status':'provisoire','coordinate_system':'Arélia Maps XY','center':list(CENTER),
-                'bounds':[p(-RX,-RY),p(RX,RY)],'disclaimer':'Tracé urbain illustratif. Les rues, monuments et ponts ne constituent pas un cadastre ni un canon définitivement établi.'},
-        'districts':districts,'streets':streets,'canals':canals,'bridges':bridges,'parks':parks,'places':pois,
+    pois=[dict(id='v-'+ident,name=name,type=('Équipement de transport' if kind=='transport' else 'Jardin' if kind=='nature' else 'Monument'),category=kind,
+               x=p(x,y)[0],y=p(x,y)[1],district=where,description=desc,wiki='vesone',status='Proposition — non canonique')
+          for ident,name,kind,x,y,where,desc in sites]
+    for d in districts:
+        pois.append(dict(id='district-'+d['id'],name=d['name'],type='Quartier',category='quartier',x=d['center'][0],y=d['center'][1],
+                         description=d['description'],district=d['name'],wiki='vesone',status='Proposition — non canonique'))
+    for b in bridges[:4]:
+        pois.append(dict(id=b['id'],name=b['name'],type='Pont',category='pont',x=b['x'],y=b['y'],
+                         description=b['description'],district='Vésone',wiki='vesone',status='Proposition — non canonique'))
+    return {
+        'meta':{'name':'Vésone — plan organique','version':'0.3.0','status':'provisoire','coordinate_system':'Arélia Maps XY',
+                'center':list(CENTER),'bounds':[p(-RX,-RY),p(RX,RY)],'seed':SEED,
+                'disclaimer':'Plan fictif de conception. La voirie et les bâtiments ne sont pas un cadastre.'},
+        'outline':outline,'districts':districts,'streets':streets,'canals':canals,'bridges':bridges,'parks':parks,'blocks':blocks,'buildings':buildings,'places':pois,
     }
-    return data
 
 def write_city(destination):
     destination=Path(destination)
     destination.parent.mkdir(parents=True,exist_ok=True)
-    data=generate()
-    destination.write_text(json.dumps(data,ensure_ascii=False,indent=2)+'\n',encoding='utf8')
-    return data
+    result=generate()
+    destination.write_text(json.dumps(result,ensure_ascii=False,separators=(',',':'))+'\n',encoding='utf-8')
+    return result
 
 if __name__=='__main__':
-    r=write_city(Path(__file__).resolve().parents[2]/'site/assets/vesone-city.json')
-    print('Vésone :',len(r['districts']),'quartiers,',len(r['streets']),'rues,',len(r['bridges']),'ponts,',len(r['places']),'fiches')
+    result=write_city(Path(__file__).resolve().parents[2]/'site/assets/vesone-city.json')
+    print('Vésone :',len(result['blocks']),'îlots',len(result['buildings']),'bâtiments',len(result['streets']),'axes',len(result['bridges']),'ponts',len(result['places']),'lieux')

@@ -44,3 +44,9 @@ assert 'href="../../atlas/?vue=vesone"' in (root/'site/wiki/vesone/index.html').
 for name in ['arelia-terrain.webp','arelia-plan.webp','arelia-maps.css','arelia-maps.js','vesone-city.json']:
     assert (root/'site/assets'/name).stat().st_size>100
 print(f"Carte valide : {len(data['places'])} lieux, {len(city['places'])} lieux urbains, {len(city['streets'])} rues, {len(city['canals'])} canaux, {len(city['bridges'])} ponts; 1 M km².")
+
+# Organic urban atlas v0.3
+assert city['meta']['version']=='0.3.0'
+assert len(city['blocks'])>=200 and len(city['buildings'])>=600
+assert len(city['streets'])>=10 and len(city['canals'])>=5 and len(city['bridges'])>=10
+assert not any(s['id'].startswith(('rue-lat','rue-long')) for s in city['streets'])

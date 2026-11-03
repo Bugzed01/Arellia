@@ -49,7 +49,7 @@ Ajouter une entrée structurée dans `ARTICLES`, dans `src/content.py`. Le gén�
 
 ### Faire évoluer Arélia Maps
 
-La page `site/atlas/` contient **Arélia Maps v0.1**, construite sur un plan de coordonnées propre à l'univers. Le fond cartographique a été créé spécialement pour cette version et n'utilise aucune carte réelle ni aucun service Google.
+La page `site/atlas/` contient **Arélia Maps v0.3**, construite sur un plan de coordonnées propre à l'univers. Le fond cartographique a été créé spécialement pour cette version et n'utilise aucune carte réelle ni aucun service Google.
 
 - `site/assets/arelia-map-data.json` : référentiel géographique avec villes, lieux naturels, routes, voies ferrées, fleuves, canaux de Vésone, littoral et coordonnées. Ces coordonnées sont **fictives**, elles ne correspondent pas à des latitudes et longitudes terrestres.
 - `site/assets/arelia-terrain.webp` et `arelia-plan.webp` : fonds de cartes pré-générés (mode Nuit calculé dans le navigateur).
@@ -95,3 +95,7 @@ HTML5 Canvas, CSS3, JavaScript natif, Python standard pour la génération du po
 ## Crédits
 
 Visuels originaux d'Arélia générés au cours de cette conversation ; contenus de fiction. Ne pas présenter le portail comme une vraie autorité publique.
+
+## Vésone — plan organique v0.3
+
+La trame orthogonale initiale a été remplacée par 253 îlots irréguliers, 727 empreintes de bâtiments, 13 voies structurantes courbes, 7 canaux et 25 ponts alignés sur les croisements. Le générateur Python (`src/maps/vesone.py`) est déterministe ; il régénère `site/assets/vesone-city.json` à chaque publication. L'ensemble constitue une **fiction cartographique provisoire**, et non un cadastre ou une navigation métrique précise.
