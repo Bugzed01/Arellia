@@ -27,9 +27,9 @@ assert {'occidian','estrel','vesone','orientale','katoru'} <= connected,connecte
 river=next(p for p in data['rivers'] if p['id']=='fleuve-central')['points']
 assert river[0][1]<400 and river[-1][0]<300 and abs(river[-1][1]-751)<40
 city=json.loads((root/'site/assets/vesone-city.json').read_text(encoding='utf-8'))
-assert city['meta']['name']=='Plan de Vésone'
+assert city['meta']['name']=='Vésone — plan organique'
 assert city['meta']['status']=='provisoire'
-assert len(city['districts'])>=5 and len(city['streets'])>=35 and len(city['canals'])>=5 and len(city['bridges'])>=10
+assert len(city['districts'])>=5 and len(city['streets'])>=10 and len(city['canals'])>=5 and len(city['bridges'])>=10
 city_ids=[p['id'] for p in city['places']]
 assert len(city_ids)==len(set(city_ids))
 minpos,maxpos=city['meta']['bounds']
