@@ -65,6 +65,8 @@ ter+=''.join(art_row('../',slug) for slug in regions)+'</div></div></section>'
 layout('territoires/index.html','Territoires et villes','Les principales villes et régions naturelles de l’Empire d’Arélia.',ter,'territoires')
 
 # Atlas : l'interface est maintenue dans son module source, régénérée à chaque déploiement.
+from maps.vesone import write_city
+write_city(ROOT / 'site' / 'assets' / 'vesone-city.json')
 from maps.atlas_markup import render as render_atlas
 layout('atlas/index.html','Arélia Maps — Atlas interactif','Carte interactive d’Arélia : villes, reliefs, fleuves, canaux et itinéraires.',render_atlas(),'atlas')
 
@@ -92,6 +94,7 @@ for a in ARTICLES:
  page+='<section class="section compact"><div class="container article-layout"><article class="article-paper"><div class="article-meta"><span class="pill">'+esc(a['category'])+'</span><span class="pill">Statut : '+esc(status)+'</span></div><p class="article-intro">'+esc(a['intro'])+'</p><div class="keyfacts"><dl>'
  for key,val in a.get('facts',{}).items(): page+=f'<dt>{esc(key)}</dt><dd>{esc(val)}</dd>'
  page+='</dl></div>'
+ if slug=='vesone': page+='<p><a class="btn btn-gold" href="../../atlas/?vue=vesone">Explorer les rues et canaux de Vésone ↗</a></p>'
  for i,s in enumerate(a['sections']):
   page+=f'<h2 id="section-{i+1}">{esc(s[0])}</h2>'
   for p in s[1:]: page+='<p>'+esc(p)+'</p>'

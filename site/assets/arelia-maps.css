@@ -4,3 +4,22 @@
 @media(max-width:1220px){.maps-layout{grid-template-columns:265px minmax(0,1fr) 245px}.maps-detail-panel{padding:25px 18px}.maps-detail-photo{margin:-25px -18px 20px}.maps-bottom-bar>div span{display:none}.maps-intro-stats{gap:19px}}
 @media(max-width:1000px){.maps-layout{grid-template-columns:260px minmax(0,1fr);height:760px}.maps-detail-panel{grid-column:1/-1;grid-row:2;border-top:1px solid #dae2e2;display:none}.maps-detail-panel.has-detail{display:block;position:absolute;right:12px;top:126px;max-height:50%;width:250px;box-shadow:0 15px 30px #132c3533}.maps-intro-stats>span{font-size:22px}}
 @media(max-width:700px){.maps-intro{padding:25px 0}.maps-intro-top{display:block}.maps-intro-stats{margin-top:20px;border-left:0;padding-left:0}.maps-intro-stats>span{font-size:23px}.maps-layout{display:flex;flex-direction:column;min-height:700px;height:calc(100dvh - 140px);max-height:none}.maps-sidebar{order:2;min-height:0;height:190px;border-right:0;border-top:1px solid #d7e0e0}.maps-sidebar-header{padding:10px 15px}.maps-searchbox{margin-top:5px;padding:6px 9px}.maps-filters{padding-top:7px}.maps-sidebar-body{padding:8px 12px;flex:1;overflow:auto}.maps-list-head{padding:0 8px 6px}.maps-result{display:inline-flex;vertical-align:middle;width:auto;padding:5px 8px;margin-right:4px}.maps-result .maps-result-icon{width:27px;height:27px}.maps-result strong{font-size:11px}.maps-result small{display:none}.maps-results{white-space:nowrap;overflow-x:auto;display:flex}.maps-sidebar-foot{display:none}.maps-canvas-shell{order:1;min-height:0;flex:1}.maps-top-controls{top:12px;left:12px;right:12px}.maps-view-toggle button{padding:8px 10px}.maps-layers-button{padding:9px}.maps-map-caption{bottom:10px;left:10px;padding:6px 8px}.maps-map-caption>span{font-size:16px}.maps-map-caption small{font-size:7px}.maps-bottom-bar{min-height:51px;padding:5px 8px;gap:5px}.maps-bottom-bar>div{display:none}.maps-bottom-bar select{flex:1;min-width:0;max-width:130px}.maps-primary-action,.maps-secondary-action{padding:8px 9px}.maps-zoom-controls{top:65px;right:10px}.maps-detail-panel.has-detail{top:66px;right:10px;width:min(240px,75vw);max-height:55%}.maps-about-grid{display:block}.maps-about-box{margin-top:25px}.maps-marker-label{font-size:9px}.maps-marker.nature .maps-marker-label{display:none}}
+
+/* Atlas urbain Vésone — v0.2 */
+.maps-only-city{display:none!important}.maps-city-mode .maps-only-city{display:inline-flex!important}
+.maps-city-mode .maps-filters [data-cat="capitale"],.maps-city-mode .maps-filters [data-cat="metropole"],.maps-city-mode .maps-filters [data-cat="nature"]{display:none}
+.maps-city-actions{display:flex;gap:6px;align-items:center;pointer-events:auto}
+.maps-city-actions button{border:1px solid #d7e1e1;border-radius:8px;background:#fff;color:#1b4353;padding:11px 13px;font:800 12px 'DM Sans',Arial,sans-serif;box-shadow:0 6px 23px #16394920;white-space:nowrap}
+.maps-city-actions button:hover{background:#f5efdf}.maps-city-actions button#maps-visit-vesone{background:#183c4c;color:white;border-color:#183c4c}
+.maps-city-actions button[hidden]{display:none!important}.maps-city-mode .maps-city-actions button#maps-visit-vesone{display:none}
+.maps-marker.local .maps-marker-label{background:#fcf9e8e8;color:#253e4a;font-size:10px;max-width:148px;text-overflow:ellipsis;overflow:hidden}
+.maps-marker.local .dot{width:10px;height:10px;background:#ba8445}.maps-marker.local.quartier .dot{background:#4b7b65}.maps-marker.local.transport .dot{background:#577893}
+.maps-city-mode .maps-map-caption>span{font-size:21px}.maps-city-mode .maps-map-caption>small{letter-spacing:.07em}
+.maps-city-mode .maps-sidebar-foot .maps-live-dot{background:#d09b5c}
+.maps-urban-status{margin-top:10px;font-size:11px;color:#7b8d93;line-height:1.6}
+.maps-urban-status strong{color:#1f4859}
+@media(max-width:950px){.maps-city-actions button{padding:10px;font-size:11px}}
+@media(max-width:700px){.maps-city-actions button{font-size:10px;padding:8px}.maps-top-controls{flex-wrap:wrap}.maps-city-actions{order:2}.maps-layers-button{order:1}.maps-marker.local .maps-marker-label{max-width:110px;font-size:9px}}
+
+.maps-city-legend{display:none;font:600 12px 'DM Sans',Arial,sans-serif;color:#345463;margin:0}.maps-city-mode .maps-city-legend{display:block!important}.maps-city-mode .maps-bottom-bar>:not(.maps-city-legend){display:none!important}
+.maps-marker.local:not(.selected) .maps-marker-label{display:none}.maps-marker.local:hover .maps-marker-label,.maps-marker.local:focus-visible .maps-marker-label{display:block}

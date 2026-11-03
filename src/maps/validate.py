@@ -26,6 +26,21 @@ assert {'occidian','estrel','vesone','orientale','katoru'} <= connected,connecte
 # The mountain-fed main river must reach the western estuary near Occidian.
 river=next(p for p in data['rivers'] if p['id']=='fleuve-central')['points']
 assert river[0][1]<400 and river[-1][0]<300 and abs(river[-1][1]-751)<40
-for name in ['arelia-terrain.webp','arelia-plan.webp','arelia-maps.css','arelia-maps.js']:
+city=json.loads((root/'site/assets/vesone-city.json').read_text(encoding='utf-8'))
+assert city['meta']['name']=='Plan de Vésone'
+assert city['meta']['status']=='provisoire'
+assert len(city['districts'])>=5 and len(city['streets'])>=35 and len(city['canals'])>=5 and len(city['bridges'])>=10
+city_ids=[p['id'] for p in city['places']]
+assert len(city_ids)==len(set(city_ids))
+minpos,maxpos=city['meta']['bounds']
+for item in city['places']+city['bridges']:
+    assert minpos[0]<=item['x']<=maxpos[0] and minpos[1]<=item['y']<=maxpos[1],item
+for collection in ['streets','canals']:
+    for item in city[collection]:
+        assert len(item['points'])>=2,item
+        assert all(minpos[0]-6<=x<=maxpos[0]+6 and minpos[1]-8<=y<=maxpos[1]+8 for x,y in item['points']),item['name']
+assert (root/'site/wiki/vesone/index.html').exists()
+assert 'href="../../atlas/?vue=vesone"' in (root/'site/wiki/vesone/index.html').read_text()
+for name in ['arelia-terrain.webp','arelia-plan.webp','arelia-maps.css','arelia-maps.js','vesone-city.json']:
     assert (root/'site/assets'/name).stat().st_size>100
-print(f"Carte valide : {len(data['places'])} lieux; {len(data['roads'])} corridors; {len(data['rivers'])} fleuves et affluents; 1 M km².")
+print(f"Carte valide : {len(data['places'])} lieux, {len(city['places'])} lieux urbains, {len(city['streets'])} rues, {len(city['canals'])} canaux, {len(city['bridges'])} ponts; 1 M km².")
