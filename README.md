@@ -155,3 +155,12 @@ Il s'agit d'une **version 1.0 de l'atlas expérimental**, pas d'un cadastre comp
 La carte propose désormais un sélecteur **Autres villes**, ainsi que les URLs `/atlas/?vue=occidian`, `?vue=orientale` et `?vue=estrel`. Chaque plan comporte un tissu bâti vectoriel, 14 grands axes courbes, 62 voies locales, sept jardins, deux cours d'eau / canaux et six lieux proposés. Le modèle de source est `src/maps/other_cities.json`, copié automatiquement par `src/build.py` au site publié. Les quartiers sont des **propositions fictionnelles non canoniques** et ne prétendent pas représenter précisément le million de km² de l'île à l'échelle des rues. Vésone et ses itinéraires existants restent indépendants.
 
 Les trois plans apparaissent également en zoomant depuis l'atlas national ; le sélecteur permet de se recentrer immédiatement sur une ville. Les notices du wiki d'Occidian, d'Orientale et d'Estrel renvoient vers le plan correspondant.
+
+## Arélia Maps 1.2 — Couverture nationale générative
+
+`site/assets/arelia-world.js` produit, sans API externe, des milieux naturels irréguliers, des courbes de relief indicatives, un réseau routier régional, des affluents secondaires, des dessertes de villages et des plans locaux déterministes sur toute l'île.
+La génération est **stable** avec le seed `20261103`, ne s'exécute qu'au chargement de l'atlas et reste indépendante des données canoniques déjà établies.
+
+Les nouvelles communes apparaissent en zoomant sur le territoire et sont recherchables via le filtre **Localités**. Six autres villes importantes reçoivent un plan urbain différencié : Katoru, Namiya, Valmère, Azuré, Tessal et Drél. Toutes les implantations et tous les toponymes supplémentaires ont le statut **provisoire / non canonique**.
+
+Le moteur dessine les détails selon le zoom et la portion visible du territoire, sans service cartographique tiers. Les campagnes et les régions naturelles ont leurs propres dessins à fort zoom. Les nouveaux chemins ne sont pas encore intégrés au calcul d'itinéraire : aucune durée de déplacement ou connexion physique réelle n'est garantie.
