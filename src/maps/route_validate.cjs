@@ -6,7 +6,7 @@ const routing=require('../../site/assets/arelia-routing.js');
 const city=JSON.parse(fs.readFileSync(path.resolve(__dirname,'../../site/assets/vesone-city.json'),'utf8'));
 const geo=JSON.parse(fs.readFileSync(path.resolve(__dirname,'../../site/assets/arelia-map-data.json'),'utf8'));
 const metro=city.metropolitan;
-assert.equal(city.meta.version,'0.8.0');
+assert.equal(city.meta.version,'0.9.0');
 const road=routing.buildRoadGraph(metro.roads);
 const rail=routing.buildRailGraph(metro.regional_rail);
 const ids=['vesone',...metro.satellites.map(p=>p.id)];
