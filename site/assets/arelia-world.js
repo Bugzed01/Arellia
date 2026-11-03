@@ -331,8 +331,14 @@
   const candidates=[[ox,oy],[ox+8,oy],[ox+8,oy+8],[ox,oy+8],center];
   if(!candidates.some(p=>inside(p,city.outline)))return null;
   const rand=rng((Math.imul(i+2048,1572869)^Math.imul(j+2048,991948530)^(city.id.length*29833)^SEED)>>>0);
-  const water=[...(city.water||[]),...(city.canals||[])];
-  const roads=[...(city.avenues||[]),...(city.streets||[]),...(city.expressways||[])];
+  const water=[...(city.water||[]),...(city.canals||[])].filter(r=>r.points.some(p=>p[0]>=ox-15&&p[0]<=ox+23&&p[1]>=oy-15&&p[1]<=oy+23));
+  const crossesCell=(route,margin=5)=>route.points.slice(1).some((p,k)=>{
+    const q=route.points[k];
+    return Math.max(p[0],q[0])>=ox-margin&&Math.min(p[0],q[0])<=ox+CITY_TILE+margin
+      &&Math.max(p[1],q[1])>=oy-margin&&Math.min(p[1],q[1])<=oy+CITY_TILE+margin;
+  });
+  const roads=[...(city.avenues||[]),...(city.streets||[]),...(city.expressways||[])].filter(r=>crossesCell(r));
+
   const excluded=[...(city.parks||[]),...(city.harbourBasins||[]),...(city.portYards||[]),...(city.harbour_basins||[])];
   if(!baseBuildingCenters.has(city)){
    baseBuildingCenters.set(city,(city.buildings||[]).map(b=>b.center||[
@@ -340,7 +346,7 @@
        b.polygon.reduce((v,p)=>v+p[1],0)/b.polygon.length
    ]));
   }
-  const existing=baseBuildingCenters.get(city),accepted=[],houses=[];
+  const existing=baseBuildingCenters.get(city).filter(q=>q[0]>=ox-3&&q[0]<=ox+11&&q[1]>=oy-3&&q[1]<=oy+11),accepted=[],houses=[];
   const waterConflict=p=>water.some(r=>r.points.slice(1).some((q,k)=>segmentDistance(p,r.points[k],q).distance<(r.width||2)*.5+.6));
   function closestRoad(p){
    let best=null;
