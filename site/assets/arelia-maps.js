@@ -856,6 +856,10 @@
       if(!section.points?.length)continue;
       polyline(section.points,'rgba(21,44,57,.72)',11);
       polyline(section.points,'#f1a22e',6);
+      for(const segment of section.provisionalSegments||[]){
+        polyline(segment,'#fff9e8',7,[6,4]);
+        polyline(segment,'#a960b0',3.4,[6,4]);
+      }
     }
     // Les derniers mètres hors du graphe sont dessinés en pointillés :
     // ils ne sont pas comptabilisés comme une route qualifiée.
@@ -870,8 +874,9 @@
   }
  function drawProposedConnectors(){
    const cityId=state.secondaryCity?.id||(state.cityMode?'vesone':null);
-   if(!state.layers.proposed||!state.layers.roads||!cityId||!state.urbanRouter)return;
+   if(!state.layers.proposed||!state.layers.roads||!cityId)return;
    const level=state.scale/state.baseScale;if(level<15)return;
+   if(!state.urbanRouter){try{ensureUrbanRouter();}catch(error){console.error(error);return;}}
    const graph=state.urbanRouter.localCity(cityId);
    if(!graph)return;
    const [w,h]=getDim(),tl=toWorld(0,0),br=toWorld(w,h);
@@ -1110,6 +1115,8 @@
       const distance=document.createElement('div');distance.className='maps-route-message';
       distance.textContent=num(answer.units*state.data.meta.kilometres_per_unit)+' km environ · distance calculée sur les voies représentées';
       const info=document.createElement('p');info.textContent='Réseau représenté : '+answer.roads.length+' voies et '+answer.segments+' segments. Les croisements sans sommet explicite ne deviennent pas des carrefours.';
+      const proposed=document.createElement('p');proposed.className='maps-route-audit';
+      proposed.textContent='Dont '+num((answer.provisionalUnits||0)*state.data.meta.kilometres_per_unit)+' km de raccordements proposés, affichés en pointillés violets (non qualifiés).';
       const segments=answer.sections?.length?answer.sections:[answer];
       const audits=segments.map(p=>auditAPI.onRoute(p.points,state.audit));
       const issues={
@@ -1126,7 +1133,7 @@
       access.textContent=(answer.access||[]).length+' accès hors voirie qualifiée · '+num(accessDistance*state.data.meta.kilometres_per_unit)+' km indiqués en pointillés (non inclus dans le kilométrage routier).';
       const caution=document.createElement('p');
       caution.textContent='Raccordements urbains et liaisons proposés, sans garantie de circulation ni de franchissement. Les tronçons interrompus ne sont pas reliés par des routes imaginaires. Ne pas utiliser pour une navigation réelle.';
-      detail.append(title,intro,distance,info,inspection,access,caution);
+      detail.append(title,intro,distance,info,proposed,inspection,access,caution);
       const xs=answer.points.map(p=>p[0]),ys=answer.points.map(p=>p[1]),w=getDim()[0],h=getDim()[1];
       const width=Math.max(12,Math.max(...xs)-Math.min(...xs));
       const height=Math.max(12,Math.max(...ys)-Math.min(...ys));
