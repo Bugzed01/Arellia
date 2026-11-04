@@ -1,7 +1,7 @@
-/* Arélia Maps — réseau national topologique fictif, v1.3.
+/* Arélia Maps — réseau national topologique fictif, v1.4.
    Construit ses nœuds à partir des lignes visibles, des intersections et
    des embranchements. Longueurs géométriques dans le repère XY Arélia.
-   Les croisements sont supposés franchissables, faute de données d'ouvrages. */
+   Seules les extrémités attestent un raccordement ; les croisements intérieurs restent indéterminés. */
 (function(root,factory){
  const api=factory();
  if(typeof module==='object'&&module.exports)module.exports=api;
@@ -94,7 +94,8 @@
      cells.get(id).push(i);
     }
   }
-  let crossings=0;
+  let crossings=0,unqualifiedCrossings=0;
+  const uncertain=[];const endpointTolerance=1e-6;
   for(const candidates of cells.values()){
    for(let i=0;i<candidates.length;i++)for(let j=i+1;j<candidates.length;j++){
     const ia=candidates[i],ib=candidates[j],serial=ia<ib?ia+':'+ib:ib+':'+ia;
@@ -104,6 +105,16 @@
     if(a.right<b.left-1e-8||b.right<a.left-1e-8||a.bottom<b.top-1e-8||b.bottom<a.top-1e-8)continue;
     const hit=intersection(a.a,a.b,b.a,b.b);
     if(!hit)continue;
+    // Un croisement dessiné au milieu de deux segments n'atteste pas
+    // l'existence d'un échangeur. Seuls les sommets déclarés, et les voies
+    // dont l'extrémité rejoint un autre axe, sont raccordés par défaut.
+    const explicitVertex=hit.t<=endpointTolerance||hit.t>=1-endpointTolerance
+      ||hit.u<=endpointTolerance||hit.u>=1-endpointTolerance;
+    if(!explicitVertex){
+      unqualifiedCrossings++;
+      if(uncertain.length<250)uncertain.push({point:hit.point,roads:[a.roadId,b.roadId]});
+      continue;
+    }
     a.breaks.push({t:hit.t,p:hit.point});b.breaks.push({t:hit.u,p:hit.point});
     crossings++;
    }
@@ -138,8 +149,8 @@
     if(component[link.to]===-1){component[link.to]=componentCount;queue.push(link.to)}
    componentCount++;
   }
-  return {nodes,edges,adj,stops:stopNodes,component:Array.from(component),componentCount,
-   count:{segments:segments.length,crossings,edges:edges.length,nodes:nodes.length,places:stops.size,components:componentCount,
+  return {nodes,edges,adj,stops:stopNodes,component:Array.from(component),componentCount,uncertainCrossings:uncertain,
+   count:{segments:segments.length,crossings,unqualifiedCrossings,edges:edges.length,nodes:nodes.length,places:stops.size,components:componentCount,
     edgeTypes:edgeCount},unconnected:major.concat(towns).filter(p=>component[stopNodes[p.id]]!==component[stopNodes[major[0].id]]).map(p=>p.id)};
  }
  class Heap{
