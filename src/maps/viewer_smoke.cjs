@@ -10,6 +10,7 @@ const others=load('site/assets/arelia-other-cities.json');
 const js=fs.readFileSync(path.join(root,'site/assets/arelia-maps.js'),'utf8');
 const routing=require('../../site/assets/arelia-routing.js');
 const nationalRouting=require('../../site/assets/arelia-national-routing.js');
+const urbanRouting=require('../../site/assets/arelia-urban-routing.js');
 const display=require('../../site/assets/arelia-display.js');
 const world=require('../../site/assets/arelia-world.js');
 const spatial=require('../../site/assets/arelia-spatial.js');
@@ -77,7 +78,7 @@ function fakeDOM(search){
  els.get('maps-canvas').getContext=()=>canvasCtx;
  const cats=['all','capitale','metropole','nature','bourg','ville-satellite','quartier','monument','pont'];
  const styles=['game','plan','terrain','night'];
- const layers=['details','shading','roads','rail','water','places','labels','metro','metroRail','urban','canals','zones','transit','relief','lowlands'];
+ const layers=['proposed','details','shading','roads','rail','water','places','labels','metro','metroRail','urban','canals','zones','transit','relief','lowlands'];
  const controls={
   '[data-cat]':cats.map(cat=>{const e=new El('button');e.dataset.cat=cat;return e}),
   '[data-style]':styles.map(style=>{const e=new El('button');e.dataset.style=style;return e}),
@@ -92,7 +93,7 @@ function fakeDOM(search){
  class FakeImage{constructor(){this.complete=true;this.naturalWidth=1500;this.naturalHeight=1400;this.src=''}addEventListener(){}}
  class FakeObserver{constructor(){}observe(){}disconnect(){}}
  const errors=[];
- const fakeWindow={devicePixelRatio:1,innerWidth:1280,location:{search},AreliaRouting:routing,AreliaDisplay:display,AreliaWorld:world,AreliaSpatial:spatial,AreliaDetail:cartographicDetail,AreliaNationalRouting:nationalRouting,AreliaGeoAudit:audit,AreliaMeasure:measure,addEventListener:()=>{}};
+ const fakeWindow={devicePixelRatio:1,innerWidth:1280,location:{search},AreliaRouting:routing,AreliaDisplay:display,AreliaWorld:world,AreliaSpatial:spatial,AreliaDetail:cartographicDetail,AreliaNationalRouting:nationalRouting,AreliaUrbanRouting:urbanRouting,AreliaGeoAudit:audit,AreliaMeasure:measure,addEventListener:()=>{}};
  const sandbox={
   document,window:fakeWindow,Image:FakeImage,MutationObserver:FakeObserver,ResizeObserver:FakeObserver,
   fetch:async url=>({ok:true,json:async()=>structuredClone(url.includes('vesone-city')?vesone:url.includes('arelia-other-cities')?others:geo)}),
@@ -160,6 +161,19 @@ async function scenario(query){
    assert.deepEqual(ui.errors,[],'Erreur itinéraire rural : '+ui.errors.join(' ; '));
    const rural=ui.els.get('maps-detail').children.map(x=>x?.textContent||'').join(' ');
    assert.ok(rural.includes('km'),'Trajet rural non affiché');
+   // Métropole -> quartier d'une autre ville : vrai routage multi-échelles.
+   ui.els.get('maps-from').value='v-palais';ui.els.get('maps-to').value='katoru-secteur-0';
+   ui.els.get('maps-route').onclick();
+   assert.deepEqual(ui.errors,[],'Erreur itinéraire interurbain précis : '+ui.errors.join(' ; '));
+   const urban=ui.els.get('maps-detail').children.map(x=>x?.textContent||'').join(' ');
+   assert.ok(urban.includes('km')&&urban.includes('Palais'),'Trajet palais vers quartier absent');
+   ui.els.get('maps-from').value='sat-belrives';ui.els.get('maps-to').value='v-forum';
+   ui.els.get('maps-route').onclick();
+   assert.deepEqual(ui.errors,[],'Erreur de trajet métropolitain précis : '+ui.errors.join(' ; '));
+   const metro=ui.els.get('maps-detail').children.map(x=>x?.textContent||'').join(' ');
+   assert.ok(metro.includes('km'),'Trajet satellite vers centre absent');
+   const groups=ui.els.get('maps-from').children;
+   assert.ok(groups.length>=3&&groups[2].children.length>=100,'Quartiers non sélectionnables');
  }
  console.log('Vue testée : '+(query||'nationale')+', '+ui.els.get('maps-markers').children.length+' marqueurs.');
 }
