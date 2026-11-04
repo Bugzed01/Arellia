@@ -1,4 +1,4 @@
-/* Arélia Maps 1.12 — routage local et porte-à-porte hiérarchique.
+/* Arélia Maps 1.14 — routage local et porte-à-porte hiérarchique.
  * Aucune intersection implicite entre lignes qui se croisent sans sommet.
  * Les raccordements nouveaux sont explicites, contrôlés et provisoires.
  * Repère local fictif XY ; aucune indication de circulation ou de temps.
@@ -328,10 +328,20 @@
    }
    const clean=[];for(const pt of points)if(!clean.length||dist(clean.at(-1),pt)>.00001)clean.push(pt);
    const access=[];
-   if(a.distance>.02)access.push({from:xy(from),to:a.point,distance:a.distance});
-   if(b.distance>.02)access.push({from:b.point,to:xy(to),distance:b.distance});
+   function addAccess(start,end,distance){
+    if(distance<=.02)return;
+    const geometryClear=typeof options.accessCheck==='function'
+      ?Boolean(options.accessCheck(start,end)):null;
+    access.push({from:xy(start),to:xy(end),distance,
+     geometryClear,status:geometryClear===false?'obstacle détecté : accès non qualifié'
+      :geometryClear===true?'tracé terrestre possible, accès non attesté'
+      :'accès non vérifié'});
+   }
+   addAccess(from,a.point,a.distance);
+   addAccess(b.point,to,b.distance);
    const route={points:clean,units:winner.units,roads:[...new Set(roads)],
-    segments:Math.max(0,clean.length-1),access,provisionalSegments,
+    segments:Math.max(0,clean.length-1),access,
+    blockedAccess:access.filter(p=>p.geometryClear===false).length,provisionalSegments,
     provisionalUnits:provisionalSegments.reduce((sum,[p,q])=>sum+dist(p,q),0),
     source:'local',cityId:graph.cityId,
     component:pair.component,provisionalConnectors:graph.count.proposedConnectors,
@@ -362,14 +372,20 @@
   function route(from,to){
    const a=endpoint(from),b=endpoint(to);
    if(!a||!b||from.id===to.id)return null;
+   const inCity=(cityId,start,end)=>{
+    const graph=localCity(cityId),city=cities[cityId];
+    return graph&&shortestLocal(graph,start,end,{
+     accessCheck:(p,q)=>connectorClear(p,q,city,geo)
+    });
+   };
    if(a.local&&b.local&&a.cityId===b.cityId){
-    const graph=localCity(a.cityId),local=graph&&shortestLocal(graph,a.point,b.point);
+    const local=inCity(a.cityId,a.point,b.point);
     return local?{...local,sections:[local],mode:'urban',from:from.id,to:to.id}:null;
    }
    const parts=[],access=[],roads=[];
    if(a.local){
-    const graph=localCity(a.cityId),center=centers.get(a.stopId);
-    const section=graph&&shortestLocal(graph,a.point,[center.x,center.y]);
+    const center=centers.get(a.stopId);
+    const section=inCity(a.cityId,a.point,[center.x,center.y]);
     if(!section)return null;
     parts.push(section);access.push(...section.access);roads.push(...section.roads);
    }
@@ -379,8 +395,8 @@
     parts.push(section);roads.push(...section.roads);
    }
    if(b.local){
-    const graph=localCity(b.cityId),center=centers.get(b.stopId);
-    const section=graph&&shortestLocal(graph,[center.x,center.y],b.point);
+    const center=centers.get(b.stopId);
+    const section=inCity(b.cityId,[center.x,center.y],b.point);
     if(!section)return null;
     parts.push(section);access.push(...section.access);roads.push(...section.roads);
    }
@@ -393,6 +409,7 @@
     provisionalSegments:parts.flatMap(p=>p.provisionalSegments||[]),
     provisionalUnits:parts.reduce((sum,p)=>sum+(p.provisionalUnits||0),0),
     mode:'hierarchical',from:from.id,to:to.id,access,
+    blockedAccess:access.filter(p=>p.geometryClear===false).length,
     status:'liaisons nationales et urbaines représentées ; accès hors voie signalés'};
   }
   return {route,localCity,diagnostics:()=>[...cache].map(([id,g])=>({cityId:id,...g.count}))};

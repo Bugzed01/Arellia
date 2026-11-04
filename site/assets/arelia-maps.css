@@ -137,3 +137,8 @@
 .maps-road-gap-item{display:block;text-align:left;white-space:normal;cursor:pointer;background:#fbf6ee;border:1px solid #d9c6b5;border-radius:7px;padding:9px 11px;color:#664b40;font:600 11px/1.45 'DM Sans',Arial,sans-serif}
 .maps-road-gap-item:hover,.maps-road-gap-item.selected{background:#e8dacf;border-color:#ae785b;color:#513c36}
 .maps-network-status{margin-bottom:7px}
+
+/* Arélia Maps 1.14 : priorités graphiques des chaussées et signaux prudents. */
+.maps-route-audit{white-space:normal;line-height:1.6}
+.maps-route-audit:has(+ .maps-route-audit){margin-bottom:5px}
+@media(max-width:700px){.maps-layer-panel label{font-size:12px;line-height:1.5}}
