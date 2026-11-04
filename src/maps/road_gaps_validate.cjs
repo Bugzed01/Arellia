@@ -50,7 +50,7 @@ assert.deepEqual(Object.fromEntries(Object.entries(distribution).filter(([,count
 assert.equal(landCandidates+blocked,7);
 assert.ok(landCandidates>=3&&blocked>=2,'Répartition des motifs de blocage incohérente');
 const empty=gapsAPI.analyze({cityId:'vide',nodes:[],edges:[],component:[]});
-assert.equal(empty.isolated,undefined);
+assert.equal(empty.isolated,0);
 assert.equal(empty.gaps.length,0);
 const all=national.build(geo,world);
 assert.ok(all.stops,'Le graphe national est resté inchangé');
