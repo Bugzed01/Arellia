@@ -281,7 +281,7 @@
   }
   return streams;
  }
- function buildCityPlan(item){
+ function buildCityPlan(item,geo){
   const rand=rng(Math.round(item.x*31+item.y*83)+SEED),major=item.category==='metropole';
   const r=major?63:42,ry=major?50:32,cx=item.x,cy=item.y;
   const theme=item.id==='katoru'?'nordique':item.y>950?'aride':item.x>990?'forestier':'interieur';
@@ -292,35 +292,74 @@
   else city.water.push({id:item.id+'-ruisseau',name:'Cours d’eau local proposé',width:1.45,points:[xy(-r*.96,-10),xy(-r*.6,-5),xy(-r*.22,-7),xy(r*.3,2),xy(r*.96,11)]});
   for(let i=0;i<9;i++){
    const angle=2*Math.PI*i/9+.23;
-   const pts=[];for(let t=0;t<=12;t++){const a=t/12,rr=r*(.12+a*.82),wobble=.06*Math.sin(a*5+i);pts.push(xy(Math.cos(angle+wobble)*rr,Math.sin(angle+wobble)*rr*.77));}
-   city.avenues.push({id:item.id+'-rad-'+i,class:i%3===0?'avenue':'boulevard',points:pts});
+   const pts=[];for(let t=0;t<=12;t++){const a=t/12,rr=r*a*.94,wobble=.045*Math.sin(a*5+i);pts.push(xy(Math.cos(angle+wobble)*rr,Math.sin(angle+wobble)*rr*.77));}
+   // Les avenues rayonnent d'un carrefour central réel et s'arrêtent à la côte.
+   const landPts=[];
+   for(const p of pts){if(geo&&!isLand(p,geo))break;landPts.push(p)}
+   if(landPts.length>=4)city.avenues.push({id:item.id+'-rad-'+i,class:i%3===0?'avenue':'boulevard',points:landPts});
   }
   for(let j=0;j<2;j++){
    const pts=[];for(let k=0;k<80;k++){const a=2*Math.PI*k/79,m=1+.075*Math.sin(a*5+j);pts.push(xy(Math.cos(a)*r*(.44+j*.28)*m,Math.sin(a)*ry*(.44+j*.28)*m));}
-   city.avenues.push({id:item.id+'-loop-'+j,class:'boulevard',points:pts});
+   let segment=[],part=0;
+   // Découpage des rocades côtières en tronçons terrestres.
+   for(const p of pts){
+    if(!geo||isLand(p,geo))segment.push(p);
+    else {if(segment.length>=3)city.avenues.push({id:item.id+'-loop-'+j+'-'+part++,class:'boulevard',points:segment});segment=[];}
+   }
+   if(segment.length>=3)city.avenues.push({id:item.id+'-loop-'+j+'-'+part,class:'boulevard',points:segment});
   }
-  for(let i=0;i<90;i++){
-   const angle=rand()*Math.PI*2,d=7+rand()*(r-8),x=d*Math.cos(angle),y=.73*d*Math.sin(angle),theta=rand()*Math.PI*2,pts=[];
-   for(let k=-3;k<=3;k++){const t=k*2.2;pts.push(xy(x+t*Math.cos(theta)+Math.sin(k*.8+i),y+t*Math.sin(theta)+Math.sin(k*.55+i)*.6));}
-   city.streets.push({id:item.id+'-road-'+i,class:'rue',points:pts});
+  // Les rues locales partent maintenant d'un sommet d'avenue.
+  let nStreet=0,attemptStreet=0;
+  const radials=city.avenues.filter(a=>a.id.includes('-rad-'));
+  while(nStreet<110&&attemptStreet++<1800&&radials.length){
+   const avenue=radials[Math.floor(rand()*radials.length)],line=avenue.points;
+   const k=2+Math.floor(rand()*Math.max(1,line.length-4)),a=line[k-1],p=line[k],b=line[k+1];
+   const d=distance(a,b);if(d<.1)continue;
+   const nx=-(b[1]-a[1])/d,ny=(b[0]-a[0])/d,side=rand()>.5?1:-1;
+   const reach=3.5+rand()*11;
+   const midpoint=point(p[0]+nx*reach*.5*side,p[1]+ny*reach*.5*side);
+   const end=point(p[0]+nx*reach*side+(rand()-.5)*1.6,p[1]+ny*reach*side+(rand()-.5)*1.6);
+   const pts=[p,midpoint,end];
+   if(!pts.every(q=>inside(q,city.outline))||geo&&!pathOnLand(pts,geo))continue;
+   city.streets.push({id:item.id+'-road-'+nStreet,class:'rue',points:pts,attachedTo:avenue.id});
+   nStreet++;
   }
   for(let i=0;i<8;i++){
    const a=i*2.399+item.x/89,d=r*(.4+.22*rand()),x=Math.cos(a)*d,y=Math.sin(a)*d*.7;
    city.parks.push({id:item.id+'-parc-'+i,polygon:irregular(cx+x,cy+y,3.5+rand()*5,3+rand()*4,10,i+SEED)});
   }
   const minDistance=(pt,poly)=>Math.min(...poly.points.slice(1).map((p,i)=>segmentDistance(pt,poly.points[i],p).distance));
-  let attempt=0;const target=major?650:430,centres=[];
-  while(city.buildings.length<target&&attempt++<target*22){
-   const a=rand()*Math.PI*2,d=Math.sqrt(rand())*r*.86,x=cx+Math.cos(a)*d,y=cy+Math.sin(a)*d*.78;
-   const pt=[x,y];
+  const roofs=theme==='aride'?['#d9c9a2','#c6b59b','#e6d5b4']:theme==='nordique'?['#c3ced1','#c1b8aa','#d0c5ba']:['#c4bca7','#d6c6ae','#b4c3b0'];
+  const streets=[...city.streets,...city.avenues],target=major?650:430,accepted=new Map();
+  const spatialCell=3;
+  function nearby(p){
+   const i=Math.floor(p[0]/spatialCell),j=Math.floor(p[1]/spatialCell);
+   for(let dx=-1;dx<=1;dx++)for(let dy=-1;dy<=1;dy++){
+    for(const q of accepted.get((i+dx)+','+(j+dy))||[])if(distance(p,q)<1.85)return true;
+   }
+   return false;
+  }
+  function store(p){
+   const key=Math.floor(p[0]/spatialCell)+','+Math.floor(p[1]/spatialCell);
+   if(!accepted.has(key))accepted.set(key,[]);
+   accepted.get(key).push(p);
+  }
+  let attempt=0;
+  while(city.buildings.length<target&&attempt++<target*42&&streets.length){
+   const road=streets[Math.floor(rand()*streets.length)],line=road.points;
+   const idx=Math.floor(rand()*(line.length-1)),a=line[idx],b=line[idx+1],d=distance(a,b);
+   if(d<.1)continue;
+   const t=.08+rand()*.84,ux=(b[0]-a[0])/d,uy=(b[1]-a[1])/d,side=rand()>.5?1:-1;
+   const gap=1.35+rand()*2.65,x=a[0]*(1-t)+b[0]*t-uy*gap*side,y=a[1]*(1-t)+b[1]*t+ux*gap*side,pt=[x,y];
+   if(!inside(pt,city.outline)||geo&&!isLand(pt,geo))continue;
    if(city.water.some(w=>minDistance(pt,w)<w.width*.5+2))continue;
-   if(city.avenues.some(w=>minDistance(pt,w)<1.65))continue;
-   if(centres.some(p=>Math.abs(p[0]-x)<2.7&&Math.abs(p[1]-y)<2.9&&distance(p,pt)<3.5))continue;
-   centres.push(pt);
-   const w=.75+rand()*1.55,h=.65+rand()*1.5,angle=.35*rand()+a*.26;
-   const roof=(theme==='aride'?['#d9c9a2','#c6b59b','#e6d5b4']:theme==='nordique'?['#c3ced1','#c1b8aa','#d0c5ba']:['#c4bca7','#d6c6ae','#b4c3b0'])[Math.floor(rand()*3)];
-   const polygon=[[-w,-h],[w,-h],[w,h],[-w,h]].map(([xx,yy])=>point(x+xx*Math.cos(angle)-yy*Math.sin(angle),y+xx*Math.sin(angle)+yy*Math.cos(angle)));
-   city.buildings.push({id:item.id+'-bld-'+city.buildings.length,polygon,roof});
+   if(city.parks.some(p=>inside(pt,p.polygon)))continue;
+   if(nearby(pt))continue;
+   const width=.52+rand()*1.1,depth=.5+rand()*1,angle=Math.atan2(uy,ux),co=Math.cos(angle),si=Math.sin(angle);
+   const polygon=[[-width,-depth],[width,-depth],[width,depth],[-width,depth]].map(([xx,yy])=>point(x+xx*co-yy*si,y+xx*si+yy*co));
+   if(!polygon.every(p=>inside(p,city.outline)&&(!geo||isLand(p,geo))))continue;
+   store(pt);
+   city.buildings.push({id:item.id+'-bld-'+city.buildings.length,polygon,roof:roofs[Math.floor(rand()*3)],adjacentRoad:road.id});
   }
   for(let i=0;i<5;i++){
    const a=i*Math.PI*2/5+.4,d=r*.44;
@@ -345,7 +384,7 @@
   }
   const streams=makeStreams(geo);
   const newCities=geo.places.filter(p=>['ville','metropole'].includes(p.category)&&!['occidian','orientale','estrel'].includes(p.id));
-  const cityPlans=Object.fromEntries(newCities.map(c=>[c.id,buildCityPlan(c)]));
+  const cityPlans=Object.fromEntries(newCities.map(c=>[c.id,buildCityPlan(c,geo)]));
   return {version:VERSION,seed:SEED,provisional:true,land,arterials,settlements,feeders,streams,cityPlans,landCorrections,
    meta:{scope:'Toute l’île, détails procéduraux indicatifs',status:'Proposition non canonique',warning:'Ne représente pas un cadastre, les altitudes ou la navigation réelle.'}};
  }

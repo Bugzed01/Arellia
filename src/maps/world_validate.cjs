@@ -137,3 +137,21 @@ assert.ok(parcelsOnLand>250,'Habitat et cultures insuffisants');
 assert.ok(tracksOnLand>45,'Réseau rural trop faible');
 assert.ok(riparian>=6,'Végétation des berges absente');
 console.log('Arélia Maps 1.8 : '+checkedVillages+' villages inspectés, '+housesOnLand+' bâtiments terrestres, '+roadsOnLand+' rues, '+tracksOnLand+' chemins, '+riparian+' éléments de ripisylve.');
+
+// Continuité des plans urbains v1.8 : rues raccordées et bâtiments sur terre.
+for(const city of Object.values(w.cityPlans)){
+ assert.ok(city.streets.length>=75,'Voirie urbaine trop faible : '+city.id);
+ assert.ok(city.buildings.length>=240,'Densité bâtie insuffisante : '+city.id);
+ const avenues=city.avenues.filter(a=>a.id.includes('-rad-'));
+ assert.ok(avenues.length>=5,'Avenues radiales manquantes : '+city.id);
+ for(const street of city.streets){
+  assert.ok(avenues.some(a=>a.points.some(p=>p[0]===street.points[0][0]&&p[1]===street.points[0][1])),
+   'Rue sans connexion à une avenue : '+street.id);
+  assert.ok(worldModule.pathOnLand(street.points,geo),'Rue hors terre : '+street.id);
+ }
+ for(const building of city.buildings){
+  assert.ok(building.adjacentRoad,'Bâtiment non associé à une rue '+building.id);
+  assert.ok(building.polygon.every(p=>worldModule.isLand(p,geo)),'Bâtiment urbain sur l’eau '+building.id);
+ }
+}
+console.log('Continuité urbaine : '+Object.values(w.cityPlans).length+' villes avec rues rattachées aux avenues et bâti le long des voies.');
