@@ -1,0 +1,36 @@
+name: Vérifier les évolutions d'Arélia Maps
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/maps/**'
+      - 'src/build.py'
+      - 'site/assets/arelia-*.js'
+      - 'site/assets/arelia-map-data.json'
+      - '.github/workflows/maps-tests.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  cartography:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Récupérer le dépôt
+        uses: actions/checkout@v4
+      - name: Construire le site
+        run: python3 src/build.py
+      - name: Valider le référentiel
+        run: python3 src/maps/validate.py
+      - name: Vérifier les fichiers JavaScript
+        run: |
+          for script in site/assets/arelia-*.js; do node --check "$script"; done
+      - name: Contrôler la carte et les calculs
+        run: |
+          node src/maps/display_validate.cjs
+          node src/maps/route_validate.cjs
+          node src/maps/world_validate.cjs
+          node src/maps/national_route_validate.cjs
+          node src/maps/geo_audit_validate.cjs
+          node src/maps/measure_validate.cjs
+      - name: Exercer les parcours et le rendu simulé
+        run: node src/maps/viewer_smoke.cjs
