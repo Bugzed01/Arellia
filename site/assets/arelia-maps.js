@@ -1238,7 +1238,9 @@
   $('maps-visit-empire').hidden=false;
   $('maps-scope-caption').textContent='PLAN DE '+city.name.toUpperCase()+' · TRACÉS PROVISOIRES';
   document.querySelectorAll('[data-cat]').forEach(b=>b.classList.toggle('is-active',b.dataset.cat==='all'));
-  focus(city.center[0],city.center[1],13);
+  // Entrer directement dans l'échelle où les parcelles, parkings et arbres
+  // de la scène 1.15 sont visibles, plutôt qu'une ville trop dézoomée.
+  focus(city.center[0],city.center[1],18);
   listItems();renderOtherOverview();schedule();
  }
  function addNetworkStatus(cityId){

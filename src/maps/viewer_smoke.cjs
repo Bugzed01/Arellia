@@ -118,6 +118,7 @@ async function scenario(query){
    const id=query.split('=')[1];
    assert.equal(ui.els.get('maps-other-cities').value,id);
    assert.ok(ui.wrap.classList.contains('maps-secondary-mode'),'Vue urbaine non ouverte : '+id);
+   assert.ok(ui.els.get('maps-zoom-band').textContent.includes('zoom ×18'),'Les détails urbains ne sont pas visibles dès l’ouverture : '+id);
    const diagnostic=ui.els.get('maps-detail').children.find(x=>x?.textContent==='Diagnostiquer le réseau routier');
    assert.ok(diagnostic&&typeof diagnostic.onclick==='function','Diagnostic routier manquant : '+id);
    diagnostic.onclick();
