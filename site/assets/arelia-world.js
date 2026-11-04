@@ -7,7 +7,7 @@
  root.AreliaWorld=api;
 })(typeof window==='undefined'?globalThis:window,function(){
  'use strict';
- const VERSION='1.9.0',SEED=20261103;
+ const VERSION='1.10.0',SEED=20261103;
  const round=n=>Math.round(n*1000)/1000;
  const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
  function rng(n){let seed=n>>>0;return ()=>{seed=(1664525*seed+1013904223)>>>0;return seed/4294967296}}
@@ -269,12 +269,15 @@
     if(k%2)continue;
     for(const side of [-1,1]){
       const dest=river.points[k],prev=river.points[k-1],next=river.points[k+1];
+      // Ne pas raccorder d'affluents au milieu du lac Orélys ou en mer.
+      if(!isLand(dest,geo))continue;
       const len=distance(prev,next),nx=(next[1]-prev[1])/len*side,ny=-(next[0]-prev[0])/len*side;
       const reach=18+rand()*37;
       const start=point(dest[0]+nx*reach+(rand()-.5)*13,dest[1]+ny*reach+(rand()-.5)*13);
       if(!isLand(start,geo))continue;
       const pts=[start,point(start[0]*.72+dest[0]*.28+(rand()-.5)*9,start[1]*.72+dest[1]*.28+(rand()-.5)*9),
                     point(start[0]*.38+dest[0]*.62+(rand()-.5)*6,start[1]*.38+dest[1]*.62+(rand()-.5)*6),point(...dest)];
+      if(!pathOnLand(pts,geo))continue;
       streams.push({id:'ruisseau-'+streams.length,name:'Affluent secondaire fictif',points:pts,join:river.id,kind:'affluent'});
     }
    }
@@ -367,6 +370,43 @@
   }
   return city;
  }
+ // Sites remarquables fictifs : l'implantation dépend du relief et des biomes.
+ // Ces points ne sont PAS inscrits au canon et ne revendiquent pas une découverte réelle.
+ function makeLandmarks(geo,settlements){
+  const rand=rng(SEED+51773),features=[],usedNames=new Set();
+  const roots=['Auris','Brumel','Sélian','Orvane','Koral','Nivelle','Valdor','Ermine','Cendrel','Ravène',
+   'Mérial','Elvan','Soline','Verdal','Morian','Lysor','Tarin','Célune','Arvane','Doriel'];
+  const sites=[
+   {key:'panorama',prefix:'Belvédère de ',kind:'Point de vue',test:(b,h,s)=>h>47&&s>.22&&b!=='glacier'},
+   {key:'massif',prefix:'Hauts de ',kind:'Relief montagneux',test:(b,h,s)=>h>66&&(b==='roche'||b==='coniferes'||b==='glacier')},
+   {key:'clairiere',prefix:'Clairière de ',kind:'Forêt remarquable',test:b=>['foret','foret-humide','coniferes'].includes(b)},
+   {key:'dunes',prefix:'Dunes de ',kind:'Dunes et steppes',test:b=>b==='desert'||b==='steppe'},
+   {key:'vallon',prefix:'Vallon de ',kind:'Paysage de vallée',test:(b,h,s)=>h<62&&s>.15&&['prairie','cultures','foret'].includes(b)}
+  ];
+  const anchors=geo.places.filter(p=>['capitale','metropole','ville'].includes(p.category));
+  const countBy=Object.fromEntries(sites.map(x=>[x.key,0]));
+  for(let attempt=0;attempt<28000&&features.length<75;attempt++){
+   const x=125+rand()*1280,y=135+rand()*1090,p=[round(x),round(y)];
+   if(!isLand(p,geo))continue;
+   if(anchors.some(q=>distance(p,[q.x,q.y])<20))continue;
+   if(settlements.some(q=>Math.abs(p[0]-q.x)<7&&Math.abs(p[1]-q.y)<7&&distance(p,[q.x,q.y])<8))continue;
+   if(features.some(f=>Math.abs(f.x-p[0])<17&&Math.abs(f.y-p[1])<17&&distance(p,[f.x,f.y])<22))continue;
+   const b=biome(x,y),h=height(x,y),s=Math.hypot(height(x+3,y)-height(x-3,y),height(x,y+3)-height(x,y-3))/6;
+   const eligible=sites.filter(z=>countBy[z.key]<15&&z.test(b,h,s));
+   if(!eligible.length)continue;
+   eligible.sort((a,b)=>countBy[a.key]-countBy[b.key]);
+   const type=eligible[Math.floor(rand()*Math.min(2,eligible.length))];
+   const stem=roots[Math.floor(rand()*roots.length)];
+   let name=type.prefix+stem;
+   if(usedNames.has(name))name=type.prefix+stem+'-'+String(features.length+1);
+   usedNames.add(name);countBy[type.key]++;
+   features.push({id:'site-naturel-'+String(features.length+1).padStart(3,'0'),name,category:'nature',
+    kind:type.key,type:type.kind+' (proposé)',x:p[0],y:p[1],status:'Proposition non canonique',
+    biome:b,reliefIndex:Math.round(h),wiki:'arelia',
+    description:'Site naturel imaginé à partir du relief et du biome de l’atlas. Localisation provisoire.'});
+  }
+  return features;
+ }
  function makeWorld(geo){
   if(!geo?.coastline||geo.coastline.length<30)throw Error('Contour insulaire manquant');
   const land=makePatches(geo),arterials=makeArterials(geo);
@@ -385,7 +425,8 @@
   const streams=makeStreams(geo);
   const newCities=geo.places.filter(p=>['ville','metropole'].includes(p.category)&&!['occidian','orientale','estrel'].includes(p.id));
   const cityPlans=Object.fromEntries(newCities.map(c=>[c.id,buildCityPlan(c,geo)]));
-  return {version:VERSION,seed:SEED,provisional:true,land,arterials,settlements,feeders,streams,cityPlans,landCorrections,
+  const landmarks=makeLandmarks(geo,settlements);
+  return {version:VERSION,seed:SEED,provisional:true,land,arterials,settlements,feeders,streams,cityPlans,landmarks,landCorrections,
    meta:{scope:'Toute l’île, détails procéduraux indicatifs',status:'Proposition non canonique',warning:'Ne représente pas un cadastre, les altitudes ou la navigation réelle.'}};
  }
  // Cellules locales à la demande : chaque position intérieure de l'île conserve le

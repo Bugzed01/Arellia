@@ -234,3 +234,9 @@ La grande passe 1.9 ajoute un **index spatial indépendant** (`site/assets/areli
 Le rendu Atlas comporte désormais une **ombre topographique nationale** (visible dès la vue d'ensemble), en plus des textures locales d'ombrage à résolution réduite. Le tracé des côtes bénéficie d'une bande sableuse côté terre, les champs ont des haies ou des murets orientés par les parcelles, les cinq grands axes routiers sont plus distincts et reçoivent leurs numéros A1–A5. Les contrôles de zoom, de couches, de recherche et les itinéraires existants sont conservés.
 
 Les détails ne doivent pas être pris pour des données cadastrales ni pour un graphe routier complet : les pistes locales sont toujours illustratives. La surface, la population et les institutions de l'île restent inchangées.
+
+## Arélia Maps 1.10 — lacs, vallées et sites naturels
+
+La génération des affluents est désormais contrainte par la géographie terrestre du référentiel : **les segments qui traverseraient une surface d'eau sont écartés**, notamment autour du lac d'Orélys. Chaque affluent débouche sur un sommet attesté de son fleuve de rattachement. Les rives sont davantage lisibles grâce à une bande de vallée végétale, affichée selon le zoom.
+
+**75 sites naturels provisoires** ont été ajoutés, classés en cinq familles (15 belvédères, 15 reliefs montagneux, 15 clairières, 15 dunes et 15 vallons). Leur position est calculée selon le relief, la couverture des sols et l'éloignement des grandes villes ; ils sont accessibles via la recherche et le filtre Nature. Ils ne représentent pas des lieux canoniques de l'univers et ne modifient ni la superficie, ni la population, ni l'organisation institutionnelle d'Arélia.
