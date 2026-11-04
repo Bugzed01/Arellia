@@ -27,9 +27,15 @@ for(const town of w.settlements){
  assert.ok(Number.isFinite(worldModule.height(town.x,town.y)));
 }
 for(const road of w.feeders){
- assert.equal(road.points.length,3);
+ assert.ok(road.points.length>=2,'Desserte sans chemin '+road.id);
  const town=w.settlements.find(s=>s.id===road.settlement);
  assert.deepEqual(road.points[0],[town.x,town.y]);
+}
+assert.ok(w.landCorrections,'Diagnostic de correction manquant');
+console.log('Détours terrestres : '+w.landCorrections.arterials+' liaisons régionales, '+w.landCorrections.feeders+' dessertes rurales ; '+w.landCorrections.unresolved.length+' cas non résolus.');
+assert.equal(w.landCorrections.unresolved.length,0,'Détours non résolus '+JSON.stringify(w.landCorrections.unresolved.slice(0,20)));
+for(const road of [...geo.roads,...geo.railways,...w.arterials,...w.feeders]){
+ assert.ok(worldModule.pathOnLand(road.points,geo),'Tracé sur l’eau ou hors terre : '+road.id);
 }
 const testPlan=worldModule.townPlan(w.settlements[0]);
 assert.ok(testPlan.roads.length>=4&&testPlan.houses.length>=20);
