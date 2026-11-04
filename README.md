@@ -180,3 +180,11 @@ Les itinéraires de l'atlas national ne sont plus des courbes inventées entre v
 Les 790 localités peuvent être sélectionnées dans les menus « Départ » et « Arrivée », en complément des grandes villes. Les noms sont triés par ordre alphabétique et les lieux regroupés dans deux familles. Un chemin est dessiné avec sa distance géométrique approximative, sans durée de voyage.
 
 Les contrôles vérifient la reproductibilité du graphe, la connectivité entre les grands centres et l'accès routier à chacune des localités. Les franchissements routiers ne sont pas encore qualifiés : lorsqu'un axe en croise un autre, le prototype suppose une intersection praticable. Ce n'est **pas une carte routière certifiée ni un outil de navigation réelle**.
+
+## Arélia Maps 1.4 — audit des infrastructures
+
+Le graphe national ne connecte plus les routes dont les segments se croisent sans sommet d'accès déclaré. Les croisements inconnus restent séparés : un pont, un tunnel ou un échangeur ne sont pas supposés exister parce que deux lignes se croisent sur le plan.
+
+Un diagnostic des voies d'eau, de la côte et du lac Orélys répertorie les franchissements candidats et les portions de tracés problématiques. Le bouton **Ouvrages ?** et le calque **Franchissements et tracés à vérifier** permettent d'explorer ces informations. L'indication sur un itinéraire est une détection géométrique et non une validation d'ouvrage.
+
+Les contrôles sont reproductibles via `src/maps/national_route_validate.cjs` et `src/maps/geo_audit_validate.cjs`. Aucun point de franchissement n'est réputé réel, praticable ou canonique sans vérification ultérieure.

@@ -12,6 +12,7 @@ const routing=require('../../site/assets/arelia-routing.js');
 const nationalRouting=require('../../site/assets/arelia-national-routing.js');
 const display=require('../../site/assets/arelia-display.js');
 const world=require('../../site/assets/arelia-world.js');
+const audit=require('../../site/assets/arelia-geo-audit.js');
 
 function fakeDOM(search){
  let frames=0;const els=new Map();
@@ -62,7 +63,7 @@ function fakeDOM(search){
  'maps-canvas-area','maps-canvas','maps-results','maps-detail','maps-markers','maps-metro-from','maps-metro-to',
  'maps-metro-trace','maps-metro-clear','maps-metro-mode','maps-scale','maps-zoom-band','maps-count','maps-from',
  'maps-to','maps-other-cities','maps-metro-routing','maps-search','maps-visit-empire','maps-scope-caption',
- 'maps-visit-vesone','maps-visit-metro','maps-zoom-in','maps-zoom-out','maps-home','maps-layers',
+ 'maps-visit-vesone','maps-visit-metro','maps-audit-open','maps-zoom-in','maps-zoom-out','maps-home','maps-layers',
  'maps-layers-toggle','maps-altitude-readout','maps-route','maps-route-clear','maps-loading'
  ];
  for(const id of tags)els.set(id,new El(id==='maps-canvas'?'canvas':'div',id));
@@ -88,7 +89,7 @@ function fakeDOM(search){
  class FakeImage{constructor(){this.complete=true;this.naturalWidth=1500;this.naturalHeight=1400;this.src=''}addEventListener(){}}
  class FakeObserver{constructor(){}observe(){}disconnect(){}}
  const errors=[];
- const fakeWindow={devicePixelRatio:1,innerWidth:1280,location:{search},AreliaRouting:routing,AreliaDisplay:display,AreliaWorld:world,AreliaNationalRouting:nationalRouting,addEventListener:()=>{}};
+ const fakeWindow={devicePixelRatio:1,innerWidth:1280,location:{search},AreliaRouting:routing,AreliaDisplay:display,AreliaWorld:world,AreliaNationalRouting:nationalRouting,AreliaGeoAudit:audit,addEventListener:()=>{}};
  const sandbox={
   document,window:fakeWindow,Image:FakeImage,MutationObserver:FakeObserver,ResizeObserver:FakeObserver,
   fetch:async url=>({ok:true,json:async()=>structuredClone(url.includes('vesone-city')?vesone:url.includes('arelia-other-cities')?others:geo)}),

@@ -77,3 +77,9 @@
 .maps-marker[data-id^="localite-"].selected .maps-marker-label,.maps-marker[data-id^="localite-"]:hover .maps-marker-label,.maps-marker[data-id^="localite-"]:focus-visible .maps-marker-label{display:block}
 .maps-secondary-mode .maps-city-actions select{max-width:138px}
 @media(max-width:700px){.maps-city-actions select{max-width:104px}}
+
+/* v1.4 — infrastructure proposée : avertissements et contrôle du calque */
+.maps-audit-button{appearance:none;border:1px solid #d1bca1;background:#fbf4e6;color:#775434;border-radius:9px;padding:9px 11px;font:700 11px 'DM Sans',Arial,sans-serif;cursor:pointer;white-space:nowrap}
+.maps-audit-button:hover,.maps-audit-button:focus-visible{border-color:#ae8049;background:#f6e8cf}
+.maps-route-audit{font-size:12px;font-weight:750;color:#91652e;background:#faf3e7;padding:9px 10px;border-radius:7px}
+@media(max-width:700px){.maps-audit-button{padding:7px 6px;font-size:10px}}
