@@ -68,7 +68,7 @@ roads=[
  ('A2','Transarélienne',['occidian','estrel','vesone'],[[266,751],[423,765],[565,735],[747,739],[876,703],[1006,686],[1110,698]]),
  ('A3','Route méridionale',['estrel','azure','orientale'],[[747,739],[715,852],[687,963],[640,1120],[790,1160],[886,1140],[966,1094]]),
  ('A4','Corridor oriental',['vesone','tessal','namiya','orientale'],[[1110,698],[1077,778],[1088,865],[1174,905],[1208,917],[1140,1002],[1048,1067],[966,1094]]),
- ('A5','Route des piémonts',['drel','valmere','vesone'],[[596,440],[725,471],[817,524],[904,560],[1016,616],[1110,698]]),
+ ('A5','Route des piémonts',['drel','valmere','vesone'],[[596,440],[678,442],[712,445],[746,447],[777,460],[817,524],[904,560],[1016,616],[1110,698]]),
 ]
 rail=[
  ('L1','Ligne impériale',['occidian','estrel','vesone'],[[266,751],[426,780],[590,764],[747,739],[904,726],[1110,698]]),
@@ -146,7 +146,7 @@ Image.fromarray(np.clip(carto,0,255).astype('uint8'),'RGB').save(DEST/'arelia-pl
 
 points=places+poi
 geo={
- 'meta':{'name':'Arélia Maps','version':'0.1.0','coordinate_system':'Arellia synthetic XY, y grows south','units':'local atlas units','kilometres_per_unit':round(km_per_unit,6),'land_area_km2':1000000,'population':100000000,'extent':{'width':W,'height':H},'source':'Géographie construite pour la fiction; elle n’est pas géoréférencée sur Terre.','accuracy':'Implantations et infrastructures esquissées; coordonnées non cadastrales.'},
+ 'meta':{'name':'Arélia Maps','version':'1.5.0','coordinate_system':'Arellia synthetic XY, y grows south','units':'local atlas units','kilometres_per_unit':round(km_per_unit,6),'land_area_km2':1000000,'population':100000000,'extent':{'width':W,'height':H},'source':'Géographie construite pour la fiction; elle n’est pas géoréférencée sur Terre.','accuracy':'Implantations et infrastructures esquissées; coordonnées non cadastrales.'},
  'coastline':[[round(a,2),round(b,2)] for a,b in coast[::3]],
  'islands':islands,'lake':lake,'places':points,
  'roads':[{'id':i,'name':name,'cities':cities,'points':pts} for i,name,cities,pts in roads],
