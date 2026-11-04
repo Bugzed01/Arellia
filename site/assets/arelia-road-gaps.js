@@ -21,7 +21,7 @@
    groups.get(component).push(i);
   }
   const sorted=[...groups].sort((a,b)=>b[1].length-a[1].length||a[0]-b[0]);
-  if(!sorted.length)return {cityId:graph.cityId,components:0,main:null,gaps:[],status:'aucune voie'};
+  if(!sorted.length)return {cityId:graph.cityId,components:0,main:null,gaps:[],isolated:0,totalOrphanNodes:0,status:'aucune voie'};
   const [mainId,mainNodes]=sorted[0];
   const mainEdges=graph.edges.filter(e=>graph.component[e.a]===mainId);
   const cells=new Map();
