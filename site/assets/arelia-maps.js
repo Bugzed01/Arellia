@@ -7,7 +7,8 @@
  const results=$('maps-results'),detail=$('maps-detail'),markers=$('maps-markers');
  const carto=window.AreliaDisplay;if(!carto)throw Error('Règles de rendu indisponibles');
  const worldAPI=window.AreliaWorld;if(!worldAPI)throw Error('Moteur territorial indisponible');
- const state={markerNodes:new Map(),data:null,images:{},style:'plan',layers:{roads:true,rail:true,water:true,places:true,labels:true,urban:true,canals:true,zones:true,transit:true,metro:true,metroRail:true,relief:false,lowlands:false},category:'all',query:'',selected:null,city:null,secondaryData:null,secondaryCity:null,world:null,cityMode:false,metroMode:false,scale:1,baseScale:1,tx:0,ty:0,route:null,nationalGraph:null,metroRoute:null,roadGraph:null,railGraph:null,drag:null,raf:0,dpr:1};
+ const auditAPI=window.AreliaGeoAudit;if(!auditAPI)throw Error('Outil de diagnostic indisponible');
+ const state={markerNodes:new Map(),data:null,images:{},style:'plan',layers:{roads:true,rail:true,water:true,places:true,labels:true,urban:true,canals:true,zones:true,transit:true,metro:true,metroRail:true,relief:false,lowlands:false,infrastructure:false},category:'all',query:'',selected:null,city:null,secondaryData:null,secondaryCity:null,world:null,audit:null,cityMode:false,metroMode:false,scale:1,baseScale:1,tx:0,ty:0,route:null,nationalGraph:null,metroRoute:null,roadGraph:null,railGraph:null,drag:null,raf:0,dpr:1};
  const terrain=new Image(),plan=new Image();terrain.src='../assets/arelia-terrain.webp';plan.src='../assets/arelia-plan.webp';state.images={terrain,plan};
  const coord=([x,y])=>[x*state.scale+state.tx,y*state.scale+state.ty];
  const num=(n)=>Math.round(n).toLocaleString('fr-FR');
@@ -187,6 +188,47 @@
    }
    ctx.restore();
  }
+
+ function drawInfrastructureAudit(){
+   const report=state.audit,level=state.scale/state.baseScale;
+   if(!report||!state.layers.infrastructure||level<3.8)return;
+   const [w,h]=getDim(),tl=toWorld(0,0),br=toWorld(w,h);
+   ctx.save();
+   const draw=(p,color,shape)=>{
+     const [x,y]=p.point;
+     if(x<tl[0]-10||x>br[0]+10||y<tl[1]-10||y>br[1]+10)return;
+     const r=3.6/state.scale;
+     ctx.beginPath();
+     if(shape==='cross'){ctx.moveTo(x-r,y-r);ctx.lineTo(x+r,y+r);ctx.moveTo(x+r,y-r);ctx.lineTo(x-r,y+r);}
+     else ctx.arc(x,y,r,0,Math.PI*2);
+     ctx.lineWidth=3.3/state.scale;ctx.strokeStyle='#fff8e8';ctx.stroke();
+     ctx.lineWidth=1.7/state.scale;ctx.strokeStyle=color;ctx.stroke();
+   };
+   for(const p of report.bridges)draw(p,p.mode==='rail'?'#376f99':'#c48136','circle');
+   for(const p of report.lakeConflicts)draw(p,'#bb3f47','cross');
+   for(const p of report.coastalConflicts)draw(p,'#995b4c','cross');
+   ctx.restore();
+ }
+ function renderInfrastructureReport(){
+   const data=state.audit;if(!data)return;
+   state.layers.infrastructure=true;
+   for(const c of document.querySelectorAll('[data-layer]'))if(c.dataset.layer==='infrastructure')c.checked=true;
+   const tally=data.count;
+   detail.classList.add('has-detail');detail.replaceChildren();
+   const lead=document.createElement('span');lead.className='maps-detail-attr';lead.textContent='AUDIT DES TRACÉS · NON CANONIQUE';
+   const title=document.createElement('h2');title.textContent='Franchissements à qualifier';
+   const one=document.createElement('div');one.className='maps-route-message';
+   one.textContent=tally.roadCrossings+' passages routiers et '+tally.railwayCrossings+' ferroviaires au croisement de cours d’eau.';
+   const two=document.createElement('p');two.textContent=tally.lakeConflicts+' portions sur le lac Orélys et '+tally.coastalConflicts+' portions hors terre à vérifier.';
+   const three=document.createElement('p');
+   three.textContent=state.nationalGraph
+    ?state.nationalGraph.count.unqualifiedCrossings+' croisements routiers sans raccordement explicite.'
+    :'Les croisements de routes sans sommet de raccordement sont désormais considérés comme non reliés.';
+   const legend=document.createElement('p');
+   legend.textContent='Cercles orange ou bleus : ponts potentiels. Croix rouges : conflits de tracé. Les symboles ne prouvent pas l’existence d’ouvrages.';
+   detail.append(lead,title,one,two,three,legend);schedule();
+ }
+
  function drawNationalSettlements(){
    const world=state.world,level=state.scale/state.baseScale;
    if(!world||level<16)return;
@@ -222,6 +264,7 @@
   if(state.layers.rail){d.railways.forEach(r=>polyline(r.points,'#34505c',2.2,[6,4],true));}
   if(state.layers.water&&state.scale>=state.baseScale*4.5&&!state.city){d.capital.canals.forEach(r=>polyline(r.points,'#f4fbfa',8));d.capital.canals.forEach(r=>polyline(r.points,'#3e9eaf',5.2));}
   drawNationalNetworks();
+  drawInfrastructureAudit();
   if(state.scale>=state.baseScale*5)drawCities();
   drawNationalSettlements();
   if(!state.secondaryCity && state.city && state.scale>=state.baseScale*3.1 && nearViewport([1110,698]))drawMetropolis();
@@ -653,8 +696,13 @@
       const distance=document.createElement('div');distance.className='maps-route-message';
       distance.textContent=num(answer.units*state.data.meta.kilometres_per_unit)+' km environ · distance calculée sur les voies représentées';
       const info=document.createElement('p');info.textContent='Réseau : '+answer.roads.length+' axes et '+answer.segments+' segments. Les croisements sont considérés comme franchissables dans ce prototype.';
-      const caution=document.createElement('p');caution.textContent='Tracés générés et indicatifs : les ponts, échangeurs, sens uniques, vitesses et temps de parcours ne sont pas encore qualifiés. Ne pas utiliser pour une navigation réelle.';
-      detail.append(title,intro,distance,info,caution);
+      const issues=auditAPI.onRoute(answer.points,state.audit);
+      const inspection=document.createElement('p');inspection.className='maps-route-audit';
+      inspection.textContent=issues.bridges.length+' franchissement(s) fluvial(aux) à qualifier'
+       +(issues.lakeConflicts.length?' · '+issues.lakeConflicts.length+' passage(s) sur le lac':'')
+       +(issues.coastalConflicts.length?' · '+issues.coastalConflicts.length+' passage(s) hors terre':'');
+      const caution=document.createElement('p');caution.textContent='Le plan fictif ne prouve pas l’existence des ponts, échangeurs ou ouvrages nécessaires. Ne pas utiliser pour une navigation réelle.';
+      detail.append(title,intro,distance,info,inspection,caution);
       const xs=answer.points.map(p=>p[0]),ys=answer.points.map(p=>p[1]),w=getDim()[0],h=getDim()[1];
       const width=Math.max(12,Math.max(...xs)-Math.min(...xs));
       const height=Math.max(12,Math.max(...ys)-Math.min(...ys));
@@ -778,6 +826,7 @@
   area.addEventListener('wheel',e=>{e.preventDefault();const rect=area.getBoundingClientRect();zoom(e.deltaY<0?1.23:.81,e.clientX-rect.left,e.clientY-rect.top)},{passive:false});area.addEventListener('dblclick',e=>{const r=area.getBoundingClientRect();zoom(1.7,e.clientX-r.left,e.clientY-r.top)});
   area.addEventListener('keydown',e=>{if(e.key==='Escape'&&state.cityMode){leaveCity();return;}const delta=70;if(e.key==='ArrowLeft')state.tx+=delta;else if(e.key==='ArrowRight')state.tx-=delta;else if(e.key==='ArrowUp')state.ty+=delta;else if(e.key==='ArrowDown')state.ty-=delta;else if(e.key==='+'||e.key==='=')zoom(1.4);else if(e.key==='-')zoom(.7);else return;e.preventDefault();clamp();schedule()});
   $('maps-visit-vesone').onclick=enterCity;$('maps-visit-metro').onclick=enterMetro;$('maps-visit-empire').onclick=leaveCity;
+  $('maps-audit-open').onclick=renderInfrastructureReport;
   $('maps-other-cities').onchange=e=>{if(e.target.value)enterOtherCity(e.target.value);else leaveCity()};
   $('maps-zoom-in').onclick=()=>zoom(1.6);$('maps-zoom-out').onclick=()=>zoom(.625);$('maps-home').onclick=()=>state.secondaryCity?enterOtherCity(state.secondaryCity.id):state.metroMode?enterMetro():state.cityMode?focus(1110,698,23):initial();
   for(const b of document.querySelectorAll('[data-style]'))b.onclick=()=>{state.style=b.dataset.style;document.querySelectorAll('[data-style]').forEach(v=>v.classList.toggle('selected',v===b));schedule()};
@@ -812,6 +861,6 @@
   $('maps-route').onclick=route;$('maps-route-clear').onclick=()=>{state.route=null;detail.classList.remove('has-detail');detail.innerHTML='<div class="maps-detail-idle"><span class="maps-overline">CARTE GÉOGRAPHIQUE</span><h2>Itinéraire effacé.</h2><p>Sélectionnez une destination ou un autre trajet.</p></div>';schedule()};
   window.addEventListener('resize',()=>{const [w,h]=getDim();const ox=(w/2-state.tx)/state.scale,oy=(h/2-state.ty)/state.scale;const prev=state.baseScale;state.baseScale=Math.min(w/1500,h/1400)*.94;state.scale*=state.baseScale/(prev||state.baseScale);state.tx=w/2-ox*state.scale;state.ty=h/2-oy*state.scale;clamp();resize()});
  }
- async function init(){try{const [r,cityResponse,secondaryResponse]=await Promise.all([fetch('../assets/arelia-map-data.json'),fetch('../assets/vesone-city.json'),fetch('../assets/arelia-other-cities.json'),new Promise(resolve=>{let count=0;const fn=()=>{count++;if(count===2)resolve()};for(const img of [terrain,plan]){if(img.complete&&img.naturalWidth)fn();else{img.addEventListener('load',fn,{once:true});img.addEventListener('error',fn,{once:true})}}})]);if(!r.ok)throw Error('Impossible de charger les données locales');state.data=await r.json();if(!cityResponse.ok)throw Error('Plan urbain de Vésone indisponible');state.city=await cityResponse.json();if(!secondaryResponse.ok)throw Error('Plans des autres villes indisponibles');state.secondaryData=await secondaryResponse.json();state.world=worldAPI.makeWorld(state.data);state.data.places.push(...state.world.settlements);state.city.places.forEach(p=>p.cityPOI=true);Object.values(state.world.cityPlans).forEach(city=>city.places.forEach(p=>{p.cityPOI=true;p.cityId=city.id}));Object.values(state.secondaryData.cities).forEach(city=>city.places.forEach(p=>{p.cityPOI=true;p.cityId=city.id}));makeMarkers();setupRoutes();setupMetroRouting();setup();initial();resize();listItems();$('maps-loading').hidden=true;const view=new URLSearchParams(window.location.search).get('vue');if(view==='metropole')enterMetro();else if(view==='vesone')enterCity();else if(state.secondaryData.cities[view]||state.world?.cityPlans?.[view])enterOtherCity(view);}catch(err){$('maps-loading').innerHTML='<span>Erreur de chargement de la carte. Vérifiez les fichiers du site et rechargez la page.</span>';console.error(err)}}
+ async function init(){try{const [r,cityResponse,secondaryResponse]=await Promise.all([fetch('../assets/arelia-map-data.json'),fetch('../assets/vesone-city.json'),fetch('../assets/arelia-other-cities.json'),new Promise(resolve=>{let count=0;const fn=()=>{count++;if(count===2)resolve()};for(const img of [terrain,plan]){if(img.complete&&img.naturalWidth)fn();else{img.addEventListener('load',fn,{once:true});img.addEventListener('error',fn,{once:true})}}})]);if(!r.ok)throw Error('Impossible de charger les données locales');state.data=await r.json();if(!cityResponse.ok)throw Error('Plan urbain de Vésone indisponible');state.city=await cityResponse.json();if(!secondaryResponse.ok)throw Error('Plans des autres villes indisponibles');state.secondaryData=await secondaryResponse.json();state.world=worldAPI.makeWorld(state.data);state.audit=auditAPI.analyze(state.data,state.world);state.data.places.push(...state.world.settlements);state.city.places.forEach(p=>p.cityPOI=true);Object.values(state.world.cityPlans).forEach(city=>city.places.forEach(p=>{p.cityPOI=true;p.cityId=city.id}));Object.values(state.secondaryData.cities).forEach(city=>city.places.forEach(p=>{p.cityPOI=true;p.cityId=city.id}));makeMarkers();setupRoutes();setupMetroRouting();setup();initial();resize();listItems();$('maps-loading').hidden=true;const view=new URLSearchParams(window.location.search).get('vue');if(view==='metropole')enterMetro();else if(view==='vesone')enterCity();else if(state.secondaryData.cities[view]||state.world?.cityPlans?.[view])enterOtherCity(view);}catch(err){$('maps-loading').innerHTML='<span>Erreur de chargement de la carte. Vérifiez les fichiers du site et rechargez la page.</span>';console.error(err)}}
  init();
 })();
