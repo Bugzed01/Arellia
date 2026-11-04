@@ -113,6 +113,92 @@
   }
   return {regions,fields,forests,terrainLines,grid:{origin,step,cols,rows,values:grid}};
  }
+
+ // v1.5 : détour terrestrial déterministe, pour ne pas dessiner une route
+ // terrestre à travers le lac Orélys, une baie ou un bras de mer.
+ // L'algorithme conserve les points d'origine quand le tracé est déjà terrestre.
+ function segmentOnLand(a,b,geo,spacing=2.1){
+  const d=distance(a,b),n=Math.max(1,Math.ceil(d/spacing));
+  for(let k=0;k<=n;k++){
+   const t=k/n,p=[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t];
+   if(!isLand(p,geo))return false;
+  }
+  return true;
+ }
+ function pathOnLand(points,geo){
+  return points.every((p,i)=>i===0||segmentOnLand(points[i-1],p,geo));
+ }
+ class LandHeap{
+  constructor(){this.a=[]}
+  push(v,c){const a=this.a;let k=a.length;a.push({v,c});while(k){const p=(k-1)>>1;if(a[p].c<=c)break;a[k]=a[p];k=p;}a[k]={v,c}}
+  pop(){const a=this.a,top=a[0],end=a.pop();if(a.length){let k=0;while(true){let n=k*2+1;if(n>=a.length)break;if(n+1<a.length&&a[n+1].c<a[n].c)n++;if(a[n].c>=end.c)break;a[k]=a[n];k=n}a[k]=end}return top}
+  get size(){return this.a.length}
+ }
+ function routeOnLand(points,geo){
+  if(pathOnLand(points,geo))return {points,changed:false,connected:true};
+  const start=points[0],target=points[points.length-1];
+  if(!isLand(start,geo)||!isLand(target,geo))return {points,changed:false,connected:false,reason:'extrémité hors terre'};
+  const step=6,pad=100;
+  const bounds={
+   minX:Math.max(0,Math.floor((Math.min(start[0],target[0])-pad)/step)),
+   maxX:Math.min(Math.ceil(1500/step),Math.ceil((Math.max(start[0],target[0])+pad)/step)),
+   minY:Math.max(0,Math.floor((Math.min(start[1],target[1])-pad)/step)),
+   maxY:Math.min(Math.ceil(1400/step),Math.ceil((Math.max(start[1],target[1])+pad)/step))
+  };
+  const xy=(i,j)=>[i*step,j*step],cellKey=(i,j)=>i+','+j;
+  const open=new LandHeap(),distanceSoFar=new Map(),previous=new Map(),positions=new Map(),settled=new Set();
+  const eligible=new Map();
+  const allowed=(i,j)=>{
+   if(i<bounds.minX||i>bounds.maxX||j<bounds.minY||j>bounds.maxY)return false;
+   const id=cellKey(i,j);if(!eligible.has(id))eligible.set(id,isLand(xy(i,j),geo));
+   return eligible.get(id);
+  };
+  const gi=Math.round(start[0]/step),gj=Math.round(start[1]/step);
+  for(let dx=-2;dx<=2;dx++)for(let dy=-2;dy<=2;dy++){
+   const i=gi+dx,j=gj+dy;
+   if(!allowed(i,j))continue;
+   const p=xy(i,j);if(!segmentOnLand(start,p,geo))continue;
+   const id=cellKey(i,j),g=distance(start,p);
+   if(g>18)continue;
+   distanceSoFar.set(id,g);previous.set(id,null);positions.set(id,p);
+   open.push(id,g+distance(p,target));
+  }
+  let finalId=null,steps=0;
+  const dirs=[[1,0],[0,1],[-1,0],[0,-1],[1,1],[-1,1],[-1,-1],[1,-1]];
+  while(open.size&&steps++<14000){
+   const current=open.pop(),id=current.v;
+   if(settled.has(id))continue;
+   const pos=positions.get(id),g=distanceSoFar.get(id);
+   if(!pos||current.c>g+distance(pos,target)+.00001)continue;
+   settled.add(id);
+   if(distance(pos,target)<=15&&segmentOnLand(pos,target,geo)){finalId=id;break}
+   const [i,j]=id.split(',').map(Number);
+   for(const [dx,dy] of dirs){
+    const ni=i+dx,nj=j+dy,key=cellKey(ni,nj);
+    if(!allowed(ni,nj)||settled.has(key))continue;
+    const to=xy(ni,nj);
+    if(!segmentOnLand(pos,to,geo,2.8))continue;
+    const penalty=Math.max(0,height(to[0],to[1])-72)*.006;
+    const ng=g+distance(pos,to)*(1+penalty);
+    if(ng>=(distanceSoFar.get(key)??Infinity)-.00001)continue;
+    distanceSoFar.set(key,ng);positions.set(key,to);previous.set(key,id);
+    open.push(key,ng+distance(to,target));
+   }
+  }
+  if(finalId===null)return {points,changed:false,connected:false,reason:'pas de passage terrestre'};
+  const chain=[];let current=finalId;
+  while(current!==null){chain.push(positions.get(current));current=previous.get(current)}
+  chain.reverse();const raw=[start,...chain,target],smooth=[start];let i=0;
+  while(i<raw.length-1){
+   let j=raw.length-1;
+   while(j>i+1&&!segmentOnLand(raw[i],raw[j],geo,1.6))j--;
+   smooth.push(raw[j]);i=j;
+  }
+  const clean=smooth.map(p=>point(p[0],p[1]));
+  return pathOnLand(clean,geo)?{points:clean,changed:true,connected:true}
+    :{points,changed:false,connected:false,reason:'route corrigée instable'};
+ }
+
  function makeArterials(geo){
   const cities=geo.places.filter(p=>['capitale','metropole','ville'].includes(p.category));
   const result=[];
@@ -244,10 +330,23 @@
  }
  function makeWorld(geo){
   if(!geo?.coastline||geo.coastline.length<30)throw Error('Contour insulaire manquant');
-  const land=makePatches(geo),arterials=makeArterials(geo),{settlements,feeders}=makeSettlements(geo,arterials),streams=makeStreams(geo);
+  const land=makePatches(geo),arterials=makeArterials(geo);
+  const landCorrections={arterials:0,feeders:0,unresolved:[]};
+  for(const road of arterials){
+   const resolved=routeOnLand(road.points,geo);
+   if(resolved.changed){road.points=resolved.points;landCorrections.arterials++}
+   if(!resolved.connected)landCorrections.unresolved.push({id:road.id,reason:resolved.reason});
+  }
+  const {settlements,feeders}=makeSettlements(geo,arterials);
+  for(const feeder of feeders){
+   const resolved=routeOnLand(feeder.points,geo);
+   if(resolved.changed){feeder.points=resolved.points;landCorrections.feeders++}
+   if(!resolved.connected)landCorrections.unresolved.push({id:feeder.id,reason:resolved.reason});
+  }
+  const streams=makeStreams(geo);
   const newCities=geo.places.filter(p=>['ville','metropole'].includes(p.category)&&!['occidian','orientale','estrel'].includes(p.id));
   const cityPlans=Object.fromEntries(newCities.map(c=>[c.id,buildCityPlan(c)]));
-  return {version:VERSION,seed:SEED,provisional:true,land,arterials,settlements,feeders,streams,cityPlans,
+  return {version:VERSION,seed:SEED,provisional:true,land,arterials,settlements,feeders,streams,cityPlans,landCorrections,
    meta:{scope:'Toute l’île, détails procéduraux indicatifs',status:'Proposition non canonique',warning:'Ne représente pas un cadastre, les altitudes ou la navigation réelle.'}};
  }
  // Cellules locales à la demande : chaque position intérieure de l'île conserve le
@@ -406,5 +505,5 @@
   }
   const plan={roads,houses};townCache.set(town.id,plan);return plan;
  }
- return {VERSION,SEED,inside,isLand,height,biome,makeWorld,townPlan,localTile,cityTile,segmentDistance};
+ return {VERSION,SEED,inside,isLand,height,biome,makeWorld,townPlan,localTile,cityTile,segmentDistance,segmentOnLand,pathOnLand,routeOnLand};
 });
