@@ -11,6 +11,7 @@ const js=fs.readFileSync(path.join(root,'site/assets/arelia-maps.js'),'utf8');
 const routing=require('../../site/assets/arelia-routing.js');
 const nationalRouting=require('../../site/assets/arelia-national-routing.js');
 const urbanRouting=require('../../site/assets/arelia-urban-routing.js');
+const roadGaps=require('../../site/assets/arelia-road-gaps.js');
 const display=require('../../site/assets/arelia-display.js');
 const world=require('../../site/assets/arelia-world.js');
 const spatial=require('../../site/assets/arelia-spatial.js');
@@ -78,7 +79,7 @@ function fakeDOM(search){
  els.get('maps-canvas').getContext=()=>canvasCtx;
  const cats=['all','capitale','metropole','nature','bourg','ville-satellite','quartier','monument','pont'];
  const styles=['game','plan','terrain','night'];
- const layers=['proposed','details','shading','roads','rail','water','places','labels','metro','metroRail','urban','canals','zones','transit','relief','lowlands'];
+ const layers=['proposed','gaps','details','shading','roads','rail','water','places','labels','metro','metroRail','urban','canals','zones','transit','relief','lowlands'];
  const controls={
   '[data-cat]':cats.map(cat=>{const e=new El('button');e.dataset.cat=cat;return e}),
   '[data-style]':styles.map(style=>{const e=new El('button');e.dataset.style=style;return e}),
@@ -93,7 +94,7 @@ function fakeDOM(search){
  class FakeImage{constructor(){this.complete=true;this.naturalWidth=1500;this.naturalHeight=1400;this.src=''}addEventListener(){}}
  class FakeObserver{constructor(){}observe(){}disconnect(){}}
  const errors=[];
- const fakeWindow={devicePixelRatio:1,innerWidth:1280,location:{search},AreliaRouting:routing,AreliaDisplay:display,AreliaWorld:world,AreliaSpatial:spatial,AreliaDetail:cartographicDetail,AreliaNationalRouting:nationalRouting,AreliaUrbanRouting:urbanRouting,AreliaGeoAudit:audit,AreliaMeasure:measure,addEventListener:()=>{}};
+ const fakeWindow={devicePixelRatio:1,innerWidth:1280,location:{search},AreliaRouting:routing,AreliaDisplay:display,AreliaWorld:world,AreliaSpatial:spatial,AreliaDetail:cartographicDetail,AreliaNationalRouting:nationalRouting,AreliaUrbanRouting:urbanRouting,AreliaRoadGaps:roadGaps,AreliaGeoAudit:audit,AreliaMeasure:measure,addEventListener:()=>{}};
  const sandbox={
   document,window:fakeWindow,Image:FakeImage,MutationObserver:FakeObserver,ResizeObserver:FakeObserver,
   fetch:async url=>({ok:true,json:async()=>structuredClone(url.includes('vesone-city')?vesone:url.includes('arelia-other-cities')?others:geo)}),
@@ -120,6 +121,17 @@ async function scenario(query){
    diagnostic.onclick();
    const panel=ui.els.get('maps-detail').children.find(x=>x?.className==='maps-network-status');
    assert.ok(panel?.textContent.includes('composantes'),'Diagnostic routier incomplet : '+id);
+   const gapList=ui.els.get('maps-detail').children.find(x=>x?.className==='maps-road-gaps-list');
+   if(id==='occidian'){
+    assert.equal(gapList?.children.length,3,'Occidian doit exposer ses trois ruptures');
+    assert.equal(typeof gapList.children[0].onclick,'function','Centrage des ruptures absent');
+    gapList.children[0].onclick();
+    await setTimeoutReal(30);
+    assert.ok(gapList.children[0].classList.contains('selected'),'Rupture non sélectionnée');
+    assert.deepEqual(ui.errors,[],'Erreur après navigation vers une rupture');
+   }else{
+    assert.ok(!gapList,'Une ville sans rupture ne doit pas afficher de faux fragments');
+   }
  }
  if(query==='?vue=vesone')assert.ok(ui.wrap.classList.contains('maps-city-mode'));
  if(query==='?vue=metropole')assert.ok(ui.wrap.classList.contains('maps-metro-mode'));

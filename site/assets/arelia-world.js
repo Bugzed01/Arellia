@@ -7,7 +7,7 @@
  root.AreliaWorld=api;
 })(typeof window==='undefined'?globalThis:window,function(){
  'use strict';
- const VERSION='1.12.0',SEED=20261103;
+ const VERSION='1.13.0',SEED=20261103;
  const round=n=>Math.round(n*1000)/1000;
  const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
  function rng(n){let seed=n>>>0;return ()=>{seed=(1664525*seed+1013904223)>>>0;return seed/4294967296}}
