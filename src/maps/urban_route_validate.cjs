@@ -46,7 +46,9 @@ for(const city of Object.values(cities)){
   total++;
   if(!path){unsafe.push(city.id+'/'+poi.id);continue;}
   assert.ok(Number.isFinite(path.units)&&path.units>=0,'Longueur invalide '+poi.id);
-  assert.ok(path.segments>0,'Routage vide '+poi.id);
+  // Deux lieux peuvent partager le même nœud de route : 0 segment routier
+  // est légitime si une connexion terminale hors voirie est déclarée.
+  assert.ok(path.segments>0||path.access.length>0,'Lieu sans segment ni accès explicite '+poi.id);
   served++;
  }
 }
