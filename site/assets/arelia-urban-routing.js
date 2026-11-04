@@ -185,50 +185,67 @@
  }
  function shortestLocal(graph,from,to,options={}){
   if(!coordValid(from)||!coordValid(to)||!graph.edges.length)return null;
-  const first=snap(graph,from,options.maxAccess??13);
-  if(!first)return null;
-  const componentId=graph.component[first.edge.a];
-  const last=snap(graph,to,options.maxAccess??13,componentId);
-  if(!last)return null;
-  const n=graph.nodes.length,d=new Float64Array(n).fill(Infinity),prev=new Int32Array(n).fill(-1),via=new Int32Array(n).fill(-1),heap=new Heap();
-  const seed=(id,dist0)=>{if(dist0<d[id]){d[id]=dist0;heap.push(id,dist0)}};
-  seed(first.edge.a,first.t*first.edge.units);seed(first.edge.b,(1-first.t)*first.edge.units);
-  while(heap.size){
-   const cur=heap.pop(),u=cur.id;if(cur.d>d[u]+1e-9)continue;
-   for(const v of graph.adj[u]){
-    const nd=d[u]+v.units;
-    if(nd<d[v.to]-1e-9){d[v.to]=nd;prev[v.to]=u;via[v.to]=v.edgeId;heap.push(v.to,nd);}
+  const limit=options.maxAccess??14,nearA=new Map(),nearB=new Map();
+  // Les anciens plans de Vésone comportent de nombreuses routes disjointes.
+  // Explorer les composantes accessibles aux deux points évite un accrochage
+  // sur un cul-de-sac plus proche mais totalement isolé.
+  for(let i=0;i<graph.edges.length;i++){
+   const e=graph.edges[i],component=graph.component[e.a],a=graph.nodes[e.a],b=graph.nodes[e.b];
+   const p=projection(from,a,b),q=projection(to,a,b);
+   if(p.distance<=limit&&(!nearA.has(component)||p.distance<nearA.get(component).distance))
+    nearA.set(component,{...p,edge:e,edgeId:i});
+   if(q.distance<=limit&&(!nearB.has(component)||q.distance<nearB.get(component).distance))
+    nearB.set(component,{...q,edge:e,edgeId:i});
+  }
+  const candidates=[];
+  for(const [component,a] of nearA){
+   const b=nearB.get(component);if(!b)continue;
+   candidates.push({component,a,b,gap:a.distance+b.distance});
+  }
+  candidates.sort((a,b)=>a.gap-b.gap);
+  let chosen=null,quality=Infinity;
+  for(const pair of candidates.slice(0,6)){
+   const a=pair.a,b=pair.b;
+   const n=graph.nodes.length,d=new Float64Array(n).fill(Infinity);
+   const prev=new Int32Array(n).fill(-1),via=new Int32Array(n).fill(-1),heap=new Heap();
+   const seed=(id,cost)=>{if(cost<d[id]){d[id]=cost;heap.push(id,cost)}};
+   seed(a.edge.a,a.t*a.edge.units);seed(a.edge.b,(1-a.t)*a.edge.units);
+   while(heap.size){
+    const cur=heap.pop(),u=cur.id;if(cur.d>d[u]+1e-9)continue;
+    for(const e of graph.adj[u]){
+     const nd=d[u]+e.units;
+     if(nd<d[e.to]-1e-9){d[e.to]=nd;prev[e.to]=u;via[e.to]=e.edgeId;heap.push(e.to,nd);}
+    }
    }
+   const optionsEnd=[
+    {id:b.edge.a,units:d[b.edge.a]+b.t*b.edge.units},
+    {id:b.edge.b,units:d[b.edge.b]+(1-b.t)*b.edge.units}
+   ];
+   if(a.edgeId===b.edgeId)optionsEnd.push({id:-1,units:Math.abs(a.t-b.t)*a.edge.units});
+   optionsEnd.sort((a,b)=>a.units-b.units);
+   const winner=optionsEnd[0];if(!Number.isFinite(winner.units))continue;
+   const roads=[],points=[];
+   if(winner.id===-1){points.push(a.point,b.point);roads.push(a.edge.roadId);}
+   else {
+    const nodes=[],roadEdges=[];let v=winner.id,k=0;
+    while(v>=0){if(++k>graph.nodes.length+1)break;nodes.push(graph.nodes[v]);if(prev[v]>=0)roadEdges.push(via[v]);v=prev[v];}
+    if(k>graph.nodes.length+1)continue;
+    nodes.reverse();roadEdges.reverse();
+    roads.push(a.edge.roadId,...roadEdges.map(id=>graph.edges[id].roadId),b.edge.roadId);
+    points.push(a.point,...nodes,b.point);
+   }
+   const clean=[];for(const pt of points)if(!clean.length||dist(clean.at(-1),pt)>.00001)clean.push(pt);
+   const access=[];
+   if(a.distance>.02)access.push({from:xy(from),to:a.point,distance:a.distance});
+   if(b.distance>.02)access.push({from:b.point,to:xy(to),distance:b.distance});
+   const route={points:clean,units:winner.units,roads:[...new Set(roads)],
+    segments:Math.max(0,clean.length-1),access,source:'local',cityId:graph.cityId,
+    component:pair.component,provisionalConnectors:graph.count.proposedConnectors,
+    status:'voies locales représentées ; accès hors voie signalés'};
+   const penalty=winner.units+pair.gap*3.5;
+   if(penalty<quality){quality=penalty;chosen=route;}
   }
-  const candidates=[
-   {id:last.edge.a,units:d[last.edge.a]+last.t*last.edge.units},
-   {id:last.edge.b,units:d[last.edge.b]+(1-last.t)*last.edge.units}
-  ];
-  let direct=false;
-  if(first.edgeId===last.edgeId){
-   candidates.push({id:-1,units:Math.abs(first.t-last.t)*first.edge.units});
-  }
-  candidates.sort((a,b)=>a.units-b.units);
-  const best=candidates[0];if(!Number.isFinite(best.units))return null;
-  const roads=[];
-  let points;
-  if(best.id===-1){direct=true;points=[first.point,last.point];roads.push(first.edge.roadId);}
-  else {
-   const path=[],ids=[];let v=best.id,k=0;
-   while(v>=0){if(++k>graph.nodes.length+1)return null;path.push(graph.nodes[v]);if(prev[v]>=0)ids.push(via[v]);v=prev[v];}
-   path.reverse();ids.reverse();
-   for(const id of ids)roads.push(graph.edges[id].roadId);
-   roads.push(first.edge.roadId,last.edge.roadId);
-   points=[first.point,...path,last.point];
-  }
-  const cleaned=[];
-  for(const p of points)if(!cleaned.length||dist(cleaned.at(-1),p)>.00001)cleaned.push(p);
-  const access=[];
-  if(first.distance>.02)access.push({from:xy(from),to:first.point,distance:first.distance});
-  if(last.distance>.02)access.push({from:last.point,to:xy(to),distance:last.distance});
-  return {points:cleaned,units:best.units,roads:[...new Set(roads)],segments:Math.max(0,cleaned.length-1),
-   access,source:'local',cityId:graph.cityId,provisionalConnectors:graph.count.proposedConnectors,
-   status:'voies locales représentées ; accès hors voie signalés'};
+  return chosen;
  }
  function createService(geo,worldData,cities,nationalGraph){
   if(!nationalGraph?.stops)throw new Error('Graphe national absent');
@@ -253,7 +270,7 @@
    if(!a||!b||from.id===to.id)return null;
    if(a.local&&b.local&&a.cityId===b.cityId){
     const graph=localCity(a.cityId),local=graph&&shortestLocal(graph,a.point,b.point);
-    return local?{...local,mode:'urban',from:from.id,to:to.id}:null;
+    return local?{...local,sections:[local],mode:'urban',from:from.id,to:to.id}:null;
    }
    const parts=[],access=[],roads=[];
    if(a.local){
@@ -277,7 +294,7 @@
    const points=[];
    for(const p of parts)for(const q of p.points)
     if(!points.length||dist(points.at(-1),q)>.00001)points.push(q);
-   return {points,units:parts.reduce((s,p)=>s+p.units,0),
+   return {points,sections:parts,units:parts.reduce((s,p)=>s+p.units,0),
     roads:[...new Set(roads)],segments:Math.max(0,points.length-1),
     mode:'hierarchical',from:from.id,to:to.id,access,
     status:'liaisons nationales et urbaines représentées ; accès hors voie signalés'};
