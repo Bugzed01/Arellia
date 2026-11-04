@@ -7,7 +7,7 @@
  root.AreliaWorld=api;
 })(typeof window==='undefined'?globalThis:window,function(){
  'use strict';
- const VERSION='1.7.0',SEED=20261103;
+ const VERSION='1.8.0',SEED=20261103;
  const round=n=>Math.round(n*1000)/1000;
  const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
  function rng(n){let seed=n>>>0;return ()=>{seed=(1664525*seed+1013904223)>>>0;return seed/4294967296}}
@@ -254,7 +254,7 @@
     const large=idx%13===0,medium=idx%5===0,radius=large?11+rand()*4:medium?6+rand()*3:3+rand()*3;
     const pop=large?'centre local':medium?'bourg':'village';
     const item={id:'localite-'+String(idx+1).padStart(4,'0'),name,x:round(x),y:round(y),radius:round(radius),kind:pop,biome:type,seed:SEED+idx*917,category:'bourg',type:'Localité fictive proposée',wiki:'arelia',
-     description:'Implantation cartographique provisoire — '+(large?'centre local':medium?'bourg':'village')+'.',status:'Proposition non canonique'};
+     description:'Implantation cartographique provisoire — '+(large?'centre local':medium?'bourg':'village')+'.',bearing:round(Math.atan2(closest.point[1]-y,closest.point[0]-x)),status:'Proposition non canonique'};
     settlements.push(item);
     const path=[pt,point((x+closest.point[0])*.54+(rand()-.5)*8,(y+closest.point[1])*.54+(rand()-.5)*8),closest.point];
     feeders.push({id:'desserte-'+idx,kind:'desserte',settlement:item.id,road_id:closest.roadId,points:path});
@@ -387,8 +387,11 @@
     // Hashing de la frontière partagée : les segments rejoignent la cellule adjacente.
     const lh=oy+TILE*hash(i,j,741),rh=oy+TILE*hash(i+1,j,741);
     const tx=ox+TILE*hash(i,j,973),bx=ox+TILE*hash(i,j+1,973);
-    tracks.push({kind:'rural',points:[point(ox,lh),point(ox+TILE*.35,(lh+rh)*.5+(rand()-.5)*7),point(ox+TILE*.68,(lh+rh)*.5+(rand()-.5)*7),point(ox+TILE,rh)]});
-    tracks.push({kind:'rural',points:[point(tx,oy),point((tx+bx)*.5+(rand()-.5)*6,oy+TILE*.4),point((tx+bx)*.5+(rand()-.5)*6,oy+TILE*.71),point(bx,oy+TILE)]});
+    // Deux traversées raccordées au même carrefour et aux cellules voisines.
+    // Les raccords de bordure sont définis par le même hachage partagé.
+    const core=point(ox+TILE*(.43+hash(i,j,615)*.14),oy+TILE*(.43+hash(i,j,616)*.14));
+    tracks.push({kind:'rural',points:[point(ox,lh),point(ox+TILE*.26,lh*.68+core[1]*.32),core,point(ox+TILE*.76,rh*.62+core[1]*.38),point(ox+TILE,rh)]});
+    tracks.push({kind:'rural',points:[point(tx,oy),point(tx*.65+core[0]*.35,oy+TILE*.25),core,point(bx*.63+core[0]*.37,oy+TILE*.76),point(bx,oy+TILE)]});
     if(kind==='cultures'||kind==='prairie'){
       for(let k=0;k<4;k++){
         const x=ox+3+rand()*18,y=oy+3+rand()*18;
@@ -487,23 +490,63 @@
   if(cityTileCache.size>CITY_CACHE_LIMIT)cityTileCache.delete(cityTileCache.keys().next().value);
   return result;
  }
- const townCache=new Map();
- function townPlan(town){
-  if(townCache.has(town.id))return townCache.get(town.id);
-  const rand=rng(town.seed),cx=town.x,cy=town.y,r=town.radius,roads=[],houses=[];
-  for(let k=0;k<10;k++){
-   const theta=k*Math.PI/5+rand()*.15,pts=[];
-   for(let j=0;j<6;j++){const f=j/5;pts.push(point(cx+(f-.16)*r*1.6*Math.cos(theta)+Math.sin(f*8+k)*.35,cy+(f-.16)*r*1.3*Math.sin(theta)+Math.cos(f*7+k)*.3));}
-   roads.push({points:pts});
+ // Bourgs organiques : voies raccordées, bâti aligné et orientation selon l'accès routier.
+ const townCache=new Map(),MAX_TOWN_CACHE=120;
+ function townPlan(town,geo){
+  const id=town.id+(geo?':terre':'');
+  if(townCache.has(id)){const existing=townCache.get(id);townCache.delete(id);townCache.set(id,existing);return existing;}
+  const rand=rng(town.seed),cx=town.x,cy=town.y,r=town.radius;
+  const angle=Number.isFinite(town.bearing)?town.bearing:.21,co=Math.cos(angle),si=Math.sin(angle);
+  const xy=(u,v)=>point(cx+u*co-v*si,cy+u*si+v*co);
+  const roads=[],houses=[],centres=[];
+  const clear=poly=>!geo||poly.every(p=>isLand(p,geo));
+  const safeLine=pts=>!geo||pathOnLand(pts,geo);
+  function road(coords,kind='locale'){
+   const pts=coords.map(([u,v])=>xy(u,v));
+   if(!safeLine(pts))return false;
+   roads.push({points:pts,kind});return true;
   }
+  // Rue impériale et voies secondaires naissent sur des carrefours identiques.
+  const rMain=r*.85;
+  road([[-rMain,0],[-r*.56,0],[0,0],[r*.54,0],[rMain,0]],'principale');
+  road([[0,-r*.62],[0,0],[0,r*.62]],'principale');
+  for(const u of [-.52,-.26,.26,.52]){
+   for(const side of [-1,1]){
+    road([[u*r,0],[u*r,side*r*.19],[u*r+.12*r*Math.sin(u*7),side*r*.42]],'locale');
+   }
+  }
+  for(const v of [-.36,-.2,.2,.36]){
+   // Deux traverses ancrées sur les voies perpendiculaires existantes.
+   road([[-r*.52,v*r],[-r*.26,v*r],[0,v*r],[r*.26,v*r],[r*.52,v*r]],'rue');
+  }
+  // Construction par parcelles autour d'une voie, plutôt que poussière aléatoire.
   const count=town.kind==='centre local'?260:town.kind==='bourg'?150:75;
-  for(let i=0;i<count;i++){
-   const a=rand()*Math.PI*2,d=Math.sqrt(rand())*r*.85,x=cx+d*Math.cos(a),y=cy+d*.7*Math.sin(a);
-   const w=.18+rand()*.38,h=.23+rand()*.4,theta=a*.35;
-   const polygon=[[-w,-h],[w,-h],[w,h],[-w,h]].map(([u,v])=>point(x+u*Math.cos(theta)-v*Math.sin(theta),y+u*Math.sin(theta)+v*Math.cos(theta)));
-   houses.push({polygon});
+  let attempts=0;
+  while(houses.length<count&&attempts++<count*24&&roads.length){
+   const roadObj=roads[Math.floor(rand()*roads.length)];
+   const pts=roadObj.points;
+   const segment=Math.floor(rand()*(pts.length-1));
+   const a=pts[segment],b=pts[segment+1],d=distance(a,b);
+   if(d<.1)continue;
+   const t=.05+rand()*.9,side=rand()>.5?1:-1;
+   const ux=(b[0]-a[0])/d,uy=(b[1]-a[1])/d;
+   const gap=.52+rand()*.72;
+   const x=a[0]+t*(b[0]-a[0])-uy*gap*side,y=a[1]+t*(b[1]-a[1])+ux*gap*side;
+   const localU=(x-cx)*co+(y-cy)*si,localV=-(x-cx)*si+(y-cy)*co;
+   if((localU/(r*.94))**2+(localV/(r*.74))**2>1)continue;
+   if(centres.some(p=>Math.abs(x-p[0])<.63&&Math.abs(y-p[1])<.7&&distance([x,y],p)<.87))continue;
+   const width=.16+rand()*.25,depth=.17+rand()*.29;
+   const center=xy(localU,localV),vertices=[[-width,-depth],[width,-depth],[width,depth],[-width,depth]];
+   const theta=Math.atan2(uy,ux),ct=Math.cos(theta),st=Math.sin(theta);
+   const polygon=vertices.map(([xx,yy])=>point(center[0]+xx*ct-yy*st,center[1]+xx*st+yy*ct));
+   if(!clear(polygon))continue;
+   centres.push(center);
+   houses.push({polygon,kind:'parcelle-villageoise'});
   }
-  const plan={roads,houses};townCache.set(town.id,plan);return plan;
+  const result={roads,houses,status:'voirie et bâti procéduraux alignés'};
+  townCache.set(id,result);
+  if(townCache.size>MAX_TOWN_CACHE)townCache.delete(townCache.keys().next().value);
+  return result;
  }
  return {VERSION,SEED,inside,isLand,height,biome,makeWorld,townPlan,localTile,cityTile,segmentDistance,segmentOnLand,pathOnLand,routeOnLand};
 });
