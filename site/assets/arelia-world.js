@@ -7,7 +7,7 @@
  root.AreliaWorld=api;
 })(typeof window==='undefined'?globalThis:window,function(){
  'use strict';
- const VERSION='1.5.0',SEED=20261103;
+ const VERSION='1.7.0',SEED=20261103;
  const round=n=>Math.round(n*1000)/1000;
  const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
  function rng(n){let seed=n>>>0;return ()=>{seed=(1664525*seed+1013904223)>>>0;return seed/4294967296}}
@@ -309,7 +309,7 @@
    city.parks.push({id:item.id+'-parc-'+i,polygon:irregular(cx+x,cy+y,3.5+rand()*5,3+rand()*4,10,i+SEED)});
   }
   const minDistance=(pt,poly)=>Math.min(...poly.points.slice(1).map((p,i)=>segmentDistance(pt,poly.points[i],p).distance));
-  let attempt=0;const target=major?420:270,centres=[];
+  let attempt=0;const target=major?650:430,centres=[];
   while(city.buildings.length<target&&attempt++<target*22){
    const a=rand()*Math.PI*2,d=Math.sqrt(rand())*r*.86,x=cx+Math.cos(a)*d,y=cy+Math.sin(a)*d*.78;
    const pt=[x,y];
@@ -491,12 +491,12 @@
  function townPlan(town){
   if(townCache.has(town.id))return townCache.get(town.id);
   const rand=rng(town.seed),cx=town.x,cy=town.y,r=town.radius,roads=[],houses=[];
-  for(let k=0;k<5;k++){
-   const theta=k*Math.PI/2.5+rand()*.15,pts=[];
+  for(let k=0;k<10;k++){
+   const theta=k*Math.PI/5+rand()*.15,pts=[];
    for(let j=0;j<6;j++){const f=j/5;pts.push(point(cx+(f-.16)*r*1.6*Math.cos(theta)+Math.sin(f*8+k)*.35,cy+(f-.16)*r*1.3*Math.sin(theta)+Math.cos(f*7+k)*.3));}
    roads.push({points:pts});
   }
-  const count=town.kind==='centre local'?100:town.kind==='bourg'?60:28;
+  const count=town.kind==='centre local'?260:town.kind==='bourg'?150:75;
   for(let i=0;i<count;i++){
    const a=rand()*Math.PI*2,d=Math.sqrt(rand())*r*.85,x=cx+d*Math.cos(a),y=cy+d*.7*Math.sin(a);
    const w=.18+rand()*.38,h=.23+rand()*.4,theta=a*.35;

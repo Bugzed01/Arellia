@@ -208,3 +208,11 @@ La commande **Ouvrages ?** affiche le nombre de détours réalisés et une file 
 Le bouton **↔ Mesurer** permet d'ajouter des points en cliquant sur la carte, tout en conservant le déplacement par glissement, le zoom, l'annulation et l'effacement. La distance cumulée est affichée en kilomètres dans le référentiel XY synthétique normalisé, avec une indication de franchissement éventuel de l'eau. Il s'agit de segments à vol d'oiseau, **pas d'un itinéraire routier** ni d'une distance terrestre réelle.
 
 Le survol montre la position XY, le biome et un indice de relief fictif sur 100, **pas une altitude en mètres**. Les détails du relief métropolitain restent distincts. Code et tests : `site/assets/arelia-measure.js`, `src/maps/measure_validate.cjs`, `src/maps/viewer_smoke.cjs`.
+
+## Arélia Maps 1.7 — atlas à la lisibilité d'une carte de jeu
+
+Cette passe ajoute un style **Atlas** par défaut, inspiré de la clarté cartographique d'un jeu de monde ouvert comme GTA V (sans utiliser ses actifs, contours ou données). Le mode original **Plan** reste accessible. Le littoral est souligné, le relief se lit en courbes, les routes et localités apparaissent plus tôt à l'écran.
+
+Le nouveau moteur `site/assets/arelia-detail.js` génère des couches locales continues : prairies, parcelles, bosquets, pistes, petits chemins, hameaux, fermes, vergers, mares et végétation des zones arides. L'atlas ne charge que les cellules visibles, garde un cache plafonné et produit des détails déterministes. Le bâti des villages et plusieurs plans urbains ont été densifiés. Les tracés routiers ajoutés par ce calque sont **visuels et non navigables** ; les itinéraires continuent de s'appuyer sur leur propre graphe validé.
+
+La géographie établie de l'île (1 000 000 km², 100 millions d'habitants, Empire constitutionnel, capitale Vésone) reste inchangée. Les micro-détails générés sont des propositions de worldbuilding et ne constituent ni carte cadastrale ni topographie réelle.

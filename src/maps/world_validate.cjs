@@ -1,6 +1,7 @@
 /* Arélia Maps : validation de la couverture nationale sur la source canonique. */
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const worldModule=require('../../site/assets/arelia-world.js');
+const detailModule=require('../../site/assets/arelia-detail.js');
 const geo=JSON.parse(fs.readFileSync(path.join(__dirname,'../../site/assets/arelia-map-data.json'),'utf8'));
 const w=worldModule.makeWorld(geo),w2=worldModule.makeWorld(geo);
 assert.equal(w.version,worldModule.VERSION);
@@ -75,3 +76,25 @@ if(geo.lake?.length){
  const x=geo.lake.reduce((v,p)=>v+p[0]/geo.lake.length,0),y=geo.lake.reduce((v,p)=>v+p[1]/geo.lake.length,0);
  assert.ok(!worldModule.isLand([x,y],geo),'Le lac Orélys doit rester exclu des cellules terrestres');
 }
+
+// v1.7 : contrôler les tuiles fines, hors mer, sans variation aléatoire.
+const atlasCells=[[35,31],[34,31],[36,31],[46,37],[22,38],[42,45],[49,44],[37,41]];
+let illustrated=0,buildings=0,paths=0;
+for(const [i,j] of atlasCells){
+ const base=worldModule.localTile(geo,i,j);
+ if(!base)continue;
+ const fine=detailModule.tile(geo,base,i,j);
+ assert.deepEqual(fine,detailModule.tile(geo,base,i,j),'Détails non stables');
+ for(const feature of [...fine.meadows,...fine.parcels,...fine.ponds,...fine.structures]){
+  assert.ok(feature.polygon.every(p=>worldModule.isLand(p,geo)),'Bâtiment/parcelle dans l’eau '+i+','+j);
+ }
+ for(const track of fine.paths){
+  assert.ok(detailModule.lineOnLand(track.points,geo),'Chemin coupant l’eau '+i+','+j);
+ }
+ illustrated+=fine.meadows.length+fine.parcels.length+fine.groves.length;
+ buildings+=fine.structures.length;paths+=fine.paths.length;
+}
+assert.ok(illustrated>=150,'Détails géographiques insuffisants');
+assert.ok(buildings>=10,'Bâti rural insuffisant');
+assert.ok(paths>=10,'Sentiers et chemins insuffisants');
+console.log('Atlas détaillé 1.7 : '+illustrated+' éléments de paysages, '+buildings+' bâtiments, '+paths+' chemins sur cellules échantillons.');

@@ -12,6 +12,7 @@ const routing=require('../../site/assets/arelia-routing.js');
 const nationalRouting=require('../../site/assets/arelia-national-routing.js');
 const display=require('../../site/assets/arelia-display.js');
 const world=require('../../site/assets/arelia-world.js');
+const cartographicDetail=require('../../site/assets/arelia-detail.js');
 const audit=require('../../site/assets/arelia-geo-audit.js');
 const measure=require('../../site/assets/arelia-measure.js');
 
@@ -74,8 +75,8 @@ function fakeDOM(search){
  const canvasCtx=new Proxy(core,{get(obj,k){if(k in obj)return obj[k];if(typeof k==='symbol')return undefined;return ()=>undefined},set(obj,k,v){obj[k]=v;return true}});
  els.get('maps-canvas').getContext=()=>canvasCtx;
  const cats=['all','capitale','metropole','nature','bourg','ville-satellite','quartier','monument','pont'];
- const styles=['plan','terrain','night'];
- const layers=['roads','rail','water','places','labels','metro','metroRail','urban','canals','zones','transit','relief','lowlands'];
+ const styles=['game','plan','terrain','night'];
+ const layers=['details','roads','rail','water','places','labels','metro','metroRail','urban','canals','zones','transit','relief','lowlands'];
  const controls={
   '[data-cat]':cats.map(cat=>{const e=new El('button');e.dataset.cat=cat;return e}),
   '[data-style]':styles.map(style=>{const e=new El('button');e.dataset.style=style;return e}),
@@ -90,7 +91,7 @@ function fakeDOM(search){
  class FakeImage{constructor(){this.complete=true;this.naturalWidth=1500;this.naturalHeight=1400;this.src=''}addEventListener(){}}
  class FakeObserver{constructor(){}observe(){}disconnect(){}}
  const errors=[];
- const fakeWindow={devicePixelRatio:1,innerWidth:1280,location:{search},AreliaRouting:routing,AreliaDisplay:display,AreliaWorld:world,AreliaNationalRouting:nationalRouting,AreliaGeoAudit:audit,AreliaMeasure:measure,addEventListener:()=>{}};
+ const fakeWindow={devicePixelRatio:1,innerWidth:1280,location:{search},AreliaRouting:routing,AreliaDisplay:display,AreliaWorld:world,AreliaDetail:cartographicDetail,AreliaNationalRouting:nationalRouting,AreliaGeoAudit:audit,AreliaMeasure:measure,addEventListener:()=>{}};
  const sandbox={
   document,window:fakeWindow,Image:FakeImage,MutationObserver:FakeObserver,ResizeObserver:FakeObserver,
   fetch:async url=>({ok:true,json:async()=>structuredClone(url.includes('vesone-city')?vesone:url.includes('arelia-other-cities')?others:geo)}),

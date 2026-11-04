@@ -111,3 +111,9 @@
 .maps-measure-actions button{background:#edf4f1;border:1px solid #d9e5df;border-radius:6px;padding:8px;color:#28515a;font-size:10px;font-weight:800;cursor:pointer}
 .maps-measure-actions button:disabled{opacity:.45;cursor:default}
 @media(max-width:700px){.maps-measure-toggle{font-size:10px;padding:8px}.maps-measure-panel{left:10px;bottom:82px;width:min(260px,calc(100% - 20px));padding:11px}}
+
+/* Atlas de jeu : hiérarchie d'affichage, silhouettes lisibles et reliefs de couleur douce. */
+.maps-view-toggle{gap:1px}.maps-view-toggle [data-style="game"]{letter-spacing:.015em}
+.maps-view-toggle [data-style="game"].selected{background:#6f9175;color:#fff}
+@media(max-width:900px){.maps-view-toggle button{padding:8px 9px;font-size:11px}}
+@media(max-width:700px){.maps-view-toggle button{padding:7px 8px;font-size:10px}}

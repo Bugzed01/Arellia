@@ -7,9 +7,10 @@
  const results=$('maps-results'),detail=$('maps-detail'),markers=$('maps-markers');
  const carto=window.AreliaDisplay;if(!carto)throw Error('Règles de rendu indisponibles');
  const worldAPI=window.AreliaWorld;if(!worldAPI)throw Error('Moteur territorial indisponible');
+ const detailAPI=window.AreliaDetail;if(!detailAPI)throw Error('Détails géographiques indisponibles');
  const auditAPI=window.AreliaGeoAudit;if(!auditAPI)throw Error('Outil de diagnostic indisponible');
  const measureAPI=window.AreliaMeasure;if(!measureAPI)throw Error('Outil de mesure indisponible');
- const state={markerNodes:new Map(),data:null,images:{},style:'plan',layers:{roads:true,rail:true,water:true,places:true,labels:true,urban:true,canals:true,zones:true,transit:true,metro:true,metroRail:true,relief:false,lowlands:false,infrastructure:false},category:'all',query:'',selected:null,city:null,secondaryData:null,secondaryCity:null,world:null,audit:null,measure:{active:false,points:[]},cityMode:false,metroMode:false,scale:1,baseScale:1,tx:0,ty:0,route:null,nationalGraph:null,metroRoute:null,roadGraph:null,railGraph:null,drag:null,raf:0,dpr:1};
+ const state={markerNodes:new Map(),data:null,images:{},style:'game',layers:{details:true,roads:true,rail:true,water:true,places:true,labels:true,urban:true,canals:true,zones:true,transit:true,metro:true,metroRail:true,relief:false,lowlands:false,infrastructure:false},category:'all',query:'',selected:null,city:null,secondaryData:null,secondaryCity:null,world:null,audit:null,measure:{active:false,points:[]},cityMode:false,metroMode:false,scale:1,baseScale:1,tx:0,ty:0,route:null,nationalGraph:null,metroRoute:null,roadGraph:null,railGraph:null,drag:null,raf:0,dpr:1};
  const terrain=new Image(),plan=new Image();terrain.src='../assets/arelia-terrain.webp';plan.src='../assets/arelia-plan.webp';state.images={terrain,plan};
  const coord=([x,y])=>[x*state.scale+state.tx,y*state.scale+state.ty];
  const num=(n)=>Math.round(n).toLocaleString('fr-FR');
@@ -41,7 +42,7 @@
  function drawNationalLand(){
    const world=state.world;if(!world)return;
    const level=state.scale/state.baseScale;
-   if(level<2.7)return;
+   if(level<(state.style==='game'?1.4:2.7))return;
    const night=state.style==='night',[w,h]=getDim();
    const tl=toWorld(0,0),br=toWorld(w,h);
    const minX=tl[0],maxX=br[0],minY=tl[1],maxY=br[1];
@@ -52,23 +53,23 @@
      for(let k=1;k<pts.length;k++)ctx.lineTo(pts[k][0],pts[k][1]);
      ctx.closePath();
    };
-   ctx.save();ctx.globalAlpha*=carto.fade(level,2.7,7);
+   ctx.save();ctx.globalAlpha*=carto.fade(level,state.style==='game'?1.4:2.7,state.style==='game'?4.4:7);
    clipLand();
    for(const patch of world.land.regions){
      if(!patch.polygon.some(pt=>on(pt[0],pt[1],75)))continue;
      polygon(patch.polygon);
      ctx.fillStyle=night?'rgba(68,98,95,.45)':patch.color;
-     ctx.globalAlpha=night?.24:.24;ctx.fill();
+     ctx.globalAlpha=night?.24:state.style==='game'?.39:.24;ctx.fill();
    }
-   if(level>=8){
-     ctx.globalAlpha=night?.35:.48;
+   if(level>=(state.style==='game'?6:8)){
+     ctx.globalAlpha=night?.35:state.style==='game'?.55:.48;
      for(const field of world.land.fields){
        if(!field.polygon.some(pt=>on(pt[0],pt[1],25)))continue;
        polygon(field.polygon);ctx.fillStyle=night?'#748477':field.color;ctx.fill();
        if(level>18){ctx.strokeStyle=night?'#62746e':'#d9d2ae';ctx.lineWidth=.11;ctx.stroke();}
      }
    }
-   if(state.style==='terrain'||state.layers.relief){
+   if(state.style==='terrain'||state.style==='game'||state.layers.relief){
      ctx.globalAlpha=night?.48:.43;
      ctx.lineWidth=1.1/state.scale;ctx.strokeStyle=night?'#b8afa1':'#7c7862';
      for(const group of world.land.terrainLines){
@@ -91,11 +92,82 @@
    ctx.restore();
  }
 
+ // Géographie de proximité inspirée de la lisibilité d'une carte de jeu,
+ // sans reprendre les tracés ou les textures de GTA V.
+ function drawDetailTile(tile,level,night){
+  if(!tile)return;
+  const style=tile.style;
+  const poly=pts=>{
+   if(pts.length<3)return;
+   ctx.beginPath();ctx.moveTo(pts[0][0],pts[0][1]);
+   for(let k=1;k<pts.length;k++)ctx.lineTo(pts[k][0],pts[k][1]);
+   ctx.closePath();
+  };
+  const stroke=(pts,color,width)=>{
+   if(pts.length<2)return;
+   ctx.beginPath();ctx.moveTo(pts[0][0],pts[0][1]);
+   for(let k=1;k<pts.length;k++)ctx.lineTo(pts[k][0],pts[k][1]);
+   ctx.lineWidth=width;ctx.strokeStyle=color;ctx.lineCap='round';ctx.lineJoin='round';ctx.stroke();
+  };
+  const alpha=ctx.globalAlpha;
+  for(const m of tile.meadows){
+   ctx.globalAlpha=alpha*(night?.17:.23);poly(m.polygon);
+   ctx.fillStyle=night?'#73927e':m.tone>.48?style.ground:style.edge;ctx.fill();
+  }
+  if(level>=15){
+   for(const field of tile.parcels){
+    ctx.globalAlpha=alpha*(night?.30:.42);
+    poly(field.polygon);ctx.fillStyle=night?'#8a8c76':field.tone>.5?'#d7cda0':'#adb78a';ctx.fill();
+    if(field.furrows&&level>=34){
+     ctx.globalAlpha=alpha*.25;ctx.strokeStyle=night?'#b9ae88':'#dfd3ac';
+     ctx.lineWidth=.055;ctx.stroke();
+    }
+   }
+  }
+  if(level>=16&&state.layers.roads)for(const road of tile.paths){
+   const primary=road.kind==='piste';
+   ctx.globalAlpha=alpha*(night?.82:.95);
+   stroke(road.points,night?'#586c6e':'#928e7d',primary?.28:.16);
+   stroke(road.points,night?'#a1a99b':primary?'#fff6df':'#e8e0c6',primary?.18:.105);
+  }
+  if(level>=21){
+   for(const pool of tile.ponds){
+    ctx.globalAlpha=alpha*.8;poly(pool.polygon);
+    ctx.fillStyle=night?'#23566a':'#86b7bb';ctx.fill();
+    ctx.strokeStyle=night?'#3b7888':'#b7d1c9';ctx.lineWidth=.1;ctx.stroke();
+   }
+   for(const tree of tile.groves){
+    ctx.globalAlpha=alpha*(night?.75:.82);
+    ctx.beginPath();ctx.arc(tree.x,tree.y,tree.r,0,2*Math.PI);
+    ctx.fillStyle=night?'#386350':tree.tone>.5?style.foliage:style.edge;ctx.fill();
+   }
+   for(const stone of tile.scrub){
+    ctx.globalAlpha=alpha*.55;
+    ctx.beginPath();ctx.ellipse(stone.x,stone.y,stone.size*.55,stone.size*.24,0,0,2*Math.PI);
+    ctx.fillStyle=night?'#899085':'#a8a08a';ctx.fill();
+   }
+  }
+  if(level>=28){
+   for(const orchard of tile.orchards)for(const tree of orchard.trees){
+    ctx.globalAlpha=alpha*.78;ctx.beginPath();ctx.arc(tree[0],tree[1],.14,0,2*Math.PI);
+    ctx.fillStyle=night?'#486e55':'#7e9d68';ctx.fill();
+   }
+  }
+  if(level>=32&&state.layers.urban){
+   for(const house of tile.structures){
+    ctx.globalAlpha=alpha*.95;poly(house.polygon);
+    ctx.fillStyle=night?'#b7b1a0':house.tone>.5?'#d7bc9e':'#c5b69a';ctx.fill();
+    ctx.lineWidth=.04;ctx.strokeStyle=night?'#7a827e':'#ad9a84';ctx.stroke();
+   }
+  }
+  ctx.globalAlpha=alpha;
+ }
+
  // Tuiles dessinées à la demande : la carte ne devient pas vide au zoom rural.
  function drawWorldTiles(){
    if(!state.world)return;
    const level=state.scale/state.baseScale;
-   if(level<23)return;
+   if(level<12||!state.layers.details)return;
    const [w,h]=getDim(),tl=toWorld(0,0),br=toWorld(w,h);
    const tileSize=24;
    const i0=Math.max(0,Math.floor(tl[0]/tileSize)-1),i1=Math.min(62,Math.ceil(br[0]/tileSize)+1);
@@ -113,22 +185,22 @@
      ctx.strokeStyle=color;ctx.lineWidth=width;ctx.lineCap='round';ctx.lineJoin='round';
      ctx.setLineDash(dash);ctx.stroke();ctx.setLineDash([]);
    };
-   ctx.save();ctx.globalAlpha*=carto.fade(level,23,35);
+   ctx.save();ctx.globalAlpha*=carto.fade(level,12,22);
    clipLand();
    for(let j=j0;j<=j1;j++)for(let i=i0;i<=i1;i++){
      const tile=worldAPI.localTile(state.data,i,j);
      if(!tile)continue;
      const palette=tile.kind;
-     if(level>=23&&['cultures','prairie','steppe','desert'].includes(palette)){
+     if(level>=12&&['cultures','prairie','steppe','desert'].includes(palette)){
        for(const f of tile.fields){
          patch(f.polygon);
          ctx.fillStyle=palette==='desert'?(night?'#7a6d5c':'#dec498'):palette==='cultures'?(night?'#6f7b68':'#c3bd91'):palette==='prairie'?(night?'#678071':'#a8be91'):(night?'#867b66':'#d4c39b');
          ctx.globalAlpha=night?.32:.42;ctx.fill();
-         if(level>=58){ctx.strokeStyle=night?'#a9a28c':'#d4c5a3';ctx.lineWidth=.06;ctx.stroke();}
+         if(level>=35){ctx.strokeStyle=night?'#a9a28c':'#d4c5a3';ctx.lineWidth=.06;ctx.stroke();}
        }
      }
      ctx.globalAlpha=night?.59:.73;
-     if(level>=28){
+     if(level>=19){
        for(const tree of tile.trees){
          ctx.beginPath();ctx.arc(tree.x,tree.y,tree.r,0,2*Math.PI);
          ctx.fillStyle=night?'#356357':palette==='foret-humide'?'#287a63':'#4d8060';ctx.fill();
@@ -140,16 +212,17 @@
          line([a,b],night?'#a1a19e':palette==='desert'?'#c2a479':'#918d83',.1);
        }
      }
-     if(level>=26&&state.layers.roads){
+     if(level>=15&&state.layers.roads){
        for(const track of tile.tracks)line(track.points,night?'#afab98':'#f9f3df',Math.min(.2,1.8/state.scale),palette==='desert'?[.22,.12]:[]);
      }
-     if(level>=40&&state.layers.urban){
+     if(level>=27&&state.layers.urban){
        for(const farm of tile.farms){patch(farm.polygon);ctx.fillStyle=night?'#c2b9a8':'#b5a690';ctx.fill();}
      }
-     if((state.style==='terrain'||state.layers.relief)&&level>=29){
+     if((state.style==='terrain'||state.style==='game'||state.layers.relief)&&level>=23){
        ctx.globalAlpha=night?.34:.50;
        for(const levelLine of tile.contours)for(const seg of levelLine.segments)line(seg,night?'#c9c0ae':'#9b8c71',Math.min(.13,1/state.scale));
      }
+     drawDetailTile(detailAPI.tile(state.data,tile,i,j),level,night);
    }
    ctx.restore();
  }
@@ -157,7 +230,7 @@
  function drawNationalNetworks(){
    const world=state.world;if(!world)return;
    const level=state.scale/state.baseScale;
-   if(level<4.5)return;
+   if(level<3.2)return;
    const [w,h]=getDim(),tl=toWorld(0,0),br=toWorld(w,h);
    const visible=pts=>pts.some(p=>p[0]>=tl[0]-40&&p[0]<=br[0]+40&&p[1]>=tl[1]-40&&p[1]<=br[1]+40);
    const polylineWorld=(pts,color,pixels,dash=[])=>{
@@ -169,7 +242,7 @@
    };
    ctx.save();
    clipLand();
-   if(state.layers.water&&level>=7){
+   if(state.layers.water&&level>=5){
      for(const creek of world.streams){
        if(!visible(creek.points))continue;
        polylineWorld(creek.points,state.style==='night'?'#4d8698':'#a9d7d9',2.4);
@@ -182,7 +255,7 @@
        polylineWorld(road.points,state.style==='night'?'#273e4c':'#f3efe3',3);
        polylineWorld(road.points,state.style==='night'?'#c1ae92':'#b99b7a',1.8);
      }
-     if(level>=9)for(const road of world.feeders){
+     if(level>=6.5)for(const road of world.feeders){
        if(!visible(road.points))continue;
        polylineWorld(road.points,state.style==='night'?'#b2ab96':'#fdfaf0',1.45);
      }
@@ -264,10 +337,10 @@
 
  function drawNationalSettlements(){
    const world=state.world,level=state.scale/state.baseScale;
-   if(!world||level<16)return;
+   if(!world||level<10)return;
    const [w,h]=getDim(),tl=toWorld(0,0),br=toWorld(w,h);
    const show=town=>town.x+town.radius>=tl[0]-5&&town.x-town.radius<=br[0]+5&&town.y+town.radius>=tl[1]-5&&town.y-town.radius<=br[1]+5;
-   ctx.save();clipLand();ctx.globalAlpha*=carto.fade(level,16,23);
+   ctx.save();clipLand();ctx.globalAlpha*=carto.fade(level,10,18);
    for(const town of world.settlements){
      if(!show(town))continue;
      const plan=worldAPI.townPlan(town);
@@ -279,7 +352,7 @@
          for(const pt of street.points.slice(1))ctx.lineTo(pt[0],pt[1]);
          ctx.strokeStyle=state.style==='night'?'#d9d2bb':'#fdf9ed';ctx.lineWidth=Math.min(.6,2.5/state.scale);ctx.stroke();
        }
-       if(level>=24)for(const house of plan.houses){
+       if(level>=21)for(const house of plan.houses){
          ctx.beginPath();ctx.moveTo(house.polygon[0][0],house.polygon[0][1]);
          for(const pt of house.polygon.slice(1))ctx.lineTo(pt[0],pt[1]);
          ctx.closePath();ctx.fillStyle=state.style==='night'?'#b8b4a4':'#b6aa96';ctx.fill();
@@ -289,9 +362,18 @@
    ctx.restore();
  }
 
+ function drawAtlasCoast(){
+  if(state.style!=='game')return;
+  const color='#77abb0',pale='#e0e3cb';
+  const outline=ring=>{if(ring.length>2)polyline([...ring,ring[0]],pale,5.2);if(ring.length>2)polyline([...ring,ring[0]],color,2.1)};
+  outline(state.data.coastline);
+  for(const island of state.data.islands||[])outline(island);
+  if(state.data.lake?.length>2)outline(state.data.lake);
+ }
  function markerRoadNodes(){if(!state.data)return;const d=state.data;
   drawNationalLand();
   drawWorldTiles();
+  drawAtlasCoast();
   if(state.layers.water){d.rivers.forEach(r=>polyline(r.points,'#ffffffad',r.importance==='majeur'?8:4.5));d.rivers.forEach(r=>polyline(r.points,r.importance==='majeur'?'#3f96af':'#5aadc0',r.importance==='majeur'?5.5:3));polyline(d.lake,'#72b5bb',1.4)}
   if(state.layers.roads){d.roads.forEach(r=>polyline(r.points,'#ffffffca',5.5));d.roads.forEach(r=>polyline(r.points,'#d4a66c',2.45));}
   if(state.layers.rail){d.railways.forEach(r=>polyline(r.points,'#34505c',2.2,[6,4],true));}
@@ -375,7 +457,7 @@
  // effectivement visibles sont demandées au générateur cartographique.
  function drawCityMicro(city,paint,night){
    const level=state.scale/state.baseScale;
-   if(!state.layers.urban||level<40)return;
+   if(!state.layers.urban||level<28)return;
    const [w,h]=getDim(),tl=toWorld(0,0),br=toWorld(w,h),step=8;
    const west=Math.min(...city.outline.map(p=>p[0])),east=Math.max(...city.outline.map(p=>p[0]));
    const north=Math.min(...city.outline.map(p=>p[1])),south=Math.max(...city.outline.map(p=>p[1]));
@@ -383,7 +465,7 @@
    const i1=Math.min(Math.ceil(east/step)+1,Math.ceil(br[0]/step)+1);
    const j0=Math.max(Math.floor(north/step)-1,Math.floor(tl[1]/step)-1);
    const j1=Math.min(Math.ceil(south/step)+1,Math.ceil(br[1]/step)+1);
-   ctx.save();ctx.globalAlpha*=carto.fade(level,40,65);
+   ctx.save();ctx.globalAlpha*=carto.fade(level,28,47);
    for(let j=j0;j<=j1;j++)for(let i=i0;i<=i1;i++){
      const tile=worldAPI.cityTile(city,i,j);
      if(!tile)continue;
@@ -661,8 +743,8 @@
     }
   }
  function draw(){if(!state.data)return;const [w,h]=getDim();if(!w||!h)return;ctx.setTransform(state.dpr,0,0,state.dpr,0,0);ctx.fillStyle=state.style==='night'?'#0a283b':'#c0d5d9';ctx.fillRect(0,0,w,h);ctx.save();ctx.setTransform(state.dpr*state.scale,0,0,state.dpr*state.scale,state.tx*state.dpr,state.ty*state.dpr);
-  const img=state.style==='plan'?plan:terrain;
-  if(img.complete&&img.naturalWidth){if(state.style==='night')ctx.filter='brightness(.52) saturate(.65) hue-rotate(20deg)';ctx.drawImage(img,0,0,1500,1400);ctx.filter='none';}
+  const img=state.style==='night'||state.style==='terrain'?terrain:plan;
+  if(img.complete&&img.naturalWidth){if(state.style==='night')ctx.filter='brightness(.52) saturate(.65) hue-rotate(20deg)';else if(state.style==='game')ctx.filter='brightness(1.06) saturate(.86) contrast(.97)';ctx.drawImage(img,0,0,1500,1400);ctx.filter='none';}
   markerRoadNodes();drawRoute();drawMetroRoute();drawMeasure();ctx.restore();
   if(state.layers.labels && state.scale<state.baseScale*7){state.data.labels.forEach(p=>drawLabel(p.x,p.y,p.name,p.kind));}
   syncMarkers();scaleBar();}
