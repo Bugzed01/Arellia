@@ -28,7 +28,7 @@
   if(cache.has(city)&&cache.get(city).geo===geo)return cache.get(city).scene;
   const id=city.id||city.meta?.id||'vesone';
   let seed=20261104;for(const char of id)seed=Math.imul(seed^char.charCodeAt(0),16777619);
-  const random=rng(seed),scene={version:VERSION,cityId:id,trees:[],parking:[],courts:[],yards:[],status:'détails urbains provisoires non canoniques'};
+  const random=rng(seed),scene={version:VERSION,cityId:id,trees:[],parking:[],blocks:[],courts:[],yards:[],status:'détails urbains provisoires non canoniques'};
   const isSafe=p=>inside(p,city.outline)&&world.isLand(p,geo)&&
    ![...(city.water||[]),...(city.canals||[])].some(r=>lineDistance(p,r.points)<((r.width||1.4)/2+.9));
   const parks=(city.parks||[]).filter(p=>p?.polygon?.length>=3);
@@ -84,6 +84,39 @@
    reserve(p);
    scene.parking.push({id:id+'-parking-'+scene.parking.length,polygon,center:p,angle:theta,spaces:3+Math.floor(random()*5),occupancy:random(),kind:random()<.2?'service':'stationnement'});
   }
+  // Trame parcellaire orientée sur les voies, surtout utile dans les villes
+  // générées sans plan d'îlots préexistant. Ces empreintes sont non cadastrales.
+  const blocksTaken=new Map(),BLOCK_CELL=5;
+  const blockBusy=p=>{
+   const ix=Math.floor(p[0]/BLOCK_CELL),iy=Math.floor(p[1]/BLOCK_CELL);
+   for(let dx=-1;dx<=1;dx++)for(let dy=-1;dy<=1;dy++)
+    for(const q of blocksTaken.get((ix+dx)+','+(iy+dy))||[])if(d(q,p)<3.2)return true;
+   return false;
+  };
+  const reserveBlock=p=>{
+   const k=Math.floor(p[0]/BLOCK_CELL)+','+Math.floor(p[1]/BLOCK_CELL);
+   if(!blocksTaken.has(k))blocksTaken.set(k,[]);
+   blocksTaken.get(k).push(p);
+  };
+  const targetBlocks=id==='vesone'?190:city.blocks?.length?125:210;
+  for(let attempt=0;attempt<8500&&scene.blocks.length<targetBlocks;attempt++){
+   const road=roadList[Math.floor(random()*roadList.length)];
+   if(!road||road.points?.length<2)continue;
+   const seg=Math.floor(random()*(road.points.length-1)),a=road.points[seg],b=road.points[seg+1],len=d(a,b);
+   if(len<1.1)continue;
+   const t=.08+random()*.84,theta=Math.atan2(b[1]-a[1],b[0]-a[0]);
+   const ux=(b[0]-a[0])/len,uy=(b[1]-a[1])/len,side=random()<.5?-1:1;
+   const off=2.25+random()*4.3;
+   const p=point(a[0]*(1-t)+b[0]*t-uy*off*side,a[1]*(1-t)+b[1]*t+ux*off*side);
+   if(blockBusy(p)||exclusion.some(q=>inside(p,q.polygon)))continue;
+   const halfWidth=1.1+random()*1.3,halfDepth=.85+random()*1.0;
+   const polygon=rect(p[0],p[1],halfWidth,halfDepth,theta);
+   if(!polygon.every(isSafe))continue;
+   reserveBlock(p);
+   scene.blocks.push({polygon,center:p,angle:theta,
+    landuse:random()<.09?'commercial':random()<.17?'courtyard':'residential',
+    tone:random()});
+  }
   // Terrains de sports intégrés aux véritables polygones de parcs du plan.
   let sports=0;
   for(const park of parks){
@@ -132,6 +165,16 @@
  function paintLand(ctx,scene,night=false,level=20){
   if(!scene||level<15)return;
   ctx.save();
+  // Nuances de parcelles : sous-couche des maisons, cours et stationnements.
+  for(const block of scene.blocks||[]){
+   if(!shape(ctx,block.polygon))continue;
+   ctx.globalAlpha=night?.22:.28;
+   ctx.fillStyle=night?'#8b8b81':block.landuse==='commercial'?'#c2b9a5':
+     block.landuse==='courtyard'?'#b9c1ad':block.tone>.55?'#e4d8c2':'#d6c7b1';
+   ctx.fill();
+   if(level>=23){ctx.strokeStyle=night?'#777f78':'#baaa94';ctx.lineWidth=.07;ctx.stroke();}
+  }
+  ctx.globalAlpha=1;
   for(const area of scene.parking){
    if(!shape(ctx,area.polygon))continue;
    ctx.fillStyle=night?'#515a56':area.kind==='service'?'#c6beb0':'#d2c9b8';ctx.fill();
