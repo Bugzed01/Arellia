@@ -8,7 +8,8 @@
  const carto=window.AreliaDisplay;if(!carto)throw Error('Règles de rendu indisponibles');
  const worldAPI=window.AreliaWorld;if(!worldAPI)throw Error('Moteur territorial indisponible');
  const auditAPI=window.AreliaGeoAudit;if(!auditAPI)throw Error('Outil de diagnostic indisponible');
- const state={markerNodes:new Map(),data:null,images:{},style:'plan',layers:{roads:true,rail:true,water:true,places:true,labels:true,urban:true,canals:true,zones:true,transit:true,metro:true,metroRail:true,relief:false,lowlands:false,infrastructure:false},category:'all',query:'',selected:null,city:null,secondaryData:null,secondaryCity:null,world:null,audit:null,cityMode:false,metroMode:false,scale:1,baseScale:1,tx:0,ty:0,route:null,nationalGraph:null,metroRoute:null,roadGraph:null,railGraph:null,drag:null,raf:0,dpr:1};
+ const measureAPI=window.AreliaMeasure;if(!measureAPI)throw Error('Outil de mesure indisponible');
+ const state={markerNodes:new Map(),data:null,images:{},style:'plan',layers:{roads:true,rail:true,water:true,places:true,labels:true,urban:true,canals:true,zones:true,transit:true,metro:true,metroRail:true,relief:false,lowlands:false,infrastructure:false},category:'all',query:'',selected:null,city:null,secondaryData:null,secondaryCity:null,world:null,audit:null,measure:{active:false,points:[]},cityMode:false,metroMode:false,scale:1,baseScale:1,tx:0,ty:0,route:null,nationalGraph:null,metroRoute:null,roadGraph:null,railGraph:null,drag:null,raf:0,dpr:1};
  const terrain=new Image(),plan=new Image();terrain.src='../assets/arelia-terrain.webp';plan.src='../assets/arelia-plan.webp';state.images={terrain,plan};
  const coord=([x,y])=>[x*state.scale+state.tx,y*state.scale+state.ty];
  const num=(n)=>Math.round(n).toLocaleString('fr-FR');
@@ -613,6 +614,42 @@
   state.ty=hh/2-(Math.min(...ys)+Math.max(...ys))/2*z;clamp();schedule();
  }
 
+ function drawMeasure(){
+  const pts=state.measure.points;if(!pts.length)return;
+  ctx.save();
+  if(pts.length>=2){polyline(pts,'rgba(255,255,255,.95)',7);polyline(pts,'#0e8089',3.7)}
+  for(let i=0;i<pts.length;i++){
+   const p=pts[i],r=5.6/state.scale;ctx.beginPath();ctx.arc(p[0],p[1],r,0,2*Math.PI);
+   ctx.fillStyle=i===0?'#e4ac54':'#0e8089';ctx.fill();
+   ctx.lineWidth=2.1/state.scale;ctx.strokeStyle='#fff';ctx.stroke();
+  }
+  ctx.restore();
+ }
+ function updateMeasurePanel(){
+  const panel=$('maps-measure-panel'),toggle=$('maps-measure-toggle');
+  panel.hidden=!state.measure.active;
+  toggle.setAttribute('aria-pressed',String(state.measure.active));
+  toggle.classList.toggle('selected',state.measure.active);
+  host.classList.toggle('measuring',state.measure.active);
+  if(!state.data)return;
+  const s=measureAPI.summarize(state.measure.points,state.data.meta.kilometres_per_unit,
+   (x,y)=>worldAPI.height(x,y),p=>worldAPI.isLand(p,state.data));
+  $('maps-measure-value').textContent=s.totalKm.toLocaleString('fr-FR',{maximumFractionDigits:2})+' km';
+  $('maps-measure-hint').textContent=s.pointCount<2
+   ?'Cliquez sur la carte pour poser des points. Glissez pour déplacer.'
+   :s.pointCount+' points · distance à vol d’oiseau entre points'+(s.crossesWater?' · traverse une zone d’eau':'')+'.';
+  $('maps-measure-relief').textContent=s.pointCount
+   ?'Indices de relief aux points : '+s.minReliefIndex+'–'+s.maxReliefIndex+'/100 (non métriques).':'Aucun point placé.';
+  $('maps-measure-undo').disabled=!s.pointCount;
+  $('maps-measure-clear').disabled=!s.pointCount;
+ }
+ function setMeasureActive(active){state.measure.active=Boolean(active);updateMeasurePanel();schedule();}
+ function addMeasurePoint(p){
+  if(!state.measure.active||state.measure.points.length>=80)return;
+  if(p.some(n=>!Number.isFinite(n))||p[0]<0||p[0]>1500||p[1]<0||p[1]>1400)return;
+  state.measure.points.push(p.map(n=>Math.round(n*1000)/1000));updateMeasurePanel();schedule();
+ }
+
  function drawRoute(){
     if(!state.route?.points?.length)return;
     const pts=state.route.points;
@@ -626,7 +663,7 @@
  function draw(){if(!state.data)return;const [w,h]=getDim();if(!w||!h)return;ctx.setTransform(state.dpr,0,0,state.dpr,0,0);ctx.fillStyle=state.style==='night'?'#0a283b':'#c0d5d9';ctx.fillRect(0,0,w,h);ctx.save();ctx.setTransform(state.dpr*state.scale,0,0,state.dpr*state.scale,state.tx*state.dpr,state.ty*state.dpr);
   const img=state.style==='plan'?plan:terrain;
   if(img.complete&&img.naturalWidth){if(state.style==='night')ctx.filter='brightness(.52) saturate(.65) hue-rotate(20deg)';ctx.drawImage(img,0,0,1500,1400);ctx.filter='none';}
-  markerRoadNodes();drawRoute();drawMetroRoute();ctx.restore();
+  markerRoadNodes();drawRoute();drawMetroRoute();drawMeasure();ctx.restore();
   if(state.layers.labels && state.scale<state.baseScale*7){state.data.labels.forEach(p=>drawLabel(p.x,p.y,p.name,p.kind));}
   syncMarkers();scaleBar();}
  function scaleBar(){
@@ -815,7 +852,7 @@
   const local=e=>{const r=area.getBoundingClientRect();return [e.clientX-r.left,e.clientY-r.top]};
   function calibrate(){
     const ps=[...pointers.values()];
-    if(ps.length===1){gesture={kind:'pan',start:ps[0],tx:state.tx,ty:state.ty};return}
+    if(ps.length===1){gesture={kind:'pan',start:ps[0],tx:state.tx,ty:state.ty,dragged:false};return}
     if(ps.length>=2){
       const a=ps[0],b=ps[1],center=[(a[0]+b[0])/2,(a[1]+b[1])/2];
       gesture={kind:'pinch',distance:Math.max(1,Math.hypot(a[0]-b[0],a[1]-b[1])),scale:state.scale,anchor:toWorld(center[0],center[1])};
@@ -840,12 +877,15 @@
       const camera=carto.pinchCamera(gesture.anchor,center,gesture.scale,distance/gesture.distance,state.baseScale*.8,state.baseScale*42);
       state.scale=camera.scale;state.tx=camera.tx;state.ty=camera.ty;clamp();schedule();
     }else if(ps.length===1&&gesture.kind==='pan'){
+      if(Math.hypot(ps[0][0]-gesture.start[0],ps[0][1]-gesture.start[1])>5)gesture.dragged=true;
+      if(!gesture.dragged)return;
       state.tx=gesture.tx+ps[0][0]-gesture.start[0];
       state.ty=gesture.ty+ps[0][1]-gesture.start[1];clamp();schedule();
     }
   });
   const release=e=>{
     if(!pointers.has(e.pointerId))return;
+    if(e.type==='pointerup'&&pointers.size===1&&gesture?.kind==='pan'&&!gesture.dragged&&state.measure.active){const p=local(e);addMeasurePoint(toWorld(p[0],p[1]));}
     pointers.delete(e.pointerId);
     if(area.hasPointerCapture(e.pointerId))area.releasePointerCapture(e.pointerId);
     calibrate();if(!pointers.size)area.classList.remove('grabbing');
@@ -855,10 +895,14 @@
     if(pointers.delete(e.pointerId)){calibrate();if(!pointers.size)area.classList.remove('grabbing')}
   });
 
-  area.addEventListener('wheel',e=>{e.preventDefault();const rect=area.getBoundingClientRect();zoom(e.deltaY<0?1.23:.81,e.clientX-rect.left,e.clientY-rect.top)},{passive:false});area.addEventListener('dblclick',e=>{const r=area.getBoundingClientRect();zoom(1.7,e.clientX-r.left,e.clientY-r.top)});
-  area.addEventListener('keydown',e=>{if(e.key==='Escape'&&state.cityMode){leaveCity();return;}const delta=70;if(e.key==='ArrowLeft')state.tx+=delta;else if(e.key==='ArrowRight')state.tx-=delta;else if(e.key==='ArrowUp')state.ty+=delta;else if(e.key==='ArrowDown')state.ty-=delta;else if(e.key==='+'||e.key==='=')zoom(1.4);else if(e.key==='-')zoom(.7);else return;e.preventDefault();clamp();schedule()});
+  area.addEventListener('wheel',e=>{e.preventDefault();const rect=area.getBoundingClientRect();zoom(e.deltaY<0?1.23:.81,e.clientX-rect.left,e.clientY-rect.top)},{passive:false});area.addEventListener('dblclick',e=>{if(state.measure.active){e.preventDefault();return;}const r=area.getBoundingClientRect();zoom(1.7,e.clientX-r.left,e.clientY-r.top)});
+  area.addEventListener('keydown',e=>{if(e.key==='Escape'&&state.measure.active){setMeasureActive(false);return;}if(e.key==='Escape'&&state.cityMode){leaveCity();return;}const delta=70;if(e.key==='ArrowLeft')state.tx+=delta;else if(e.key==='ArrowRight')state.tx-=delta;else if(e.key==='ArrowUp')state.ty+=delta;else if(e.key==='ArrowDown')state.ty-=delta;else if(e.key==='+'||e.key==='=')zoom(1.4);else if(e.key==='-')zoom(.7);else return;e.preventDefault();clamp();schedule()});
   $('maps-visit-vesone').onclick=enterCity;$('maps-visit-metro').onclick=enterMetro;$('maps-visit-empire').onclick=leaveCity;
   $('maps-audit-open').onclick=renderInfrastructureReport;
+  $('maps-measure-toggle').onclick=()=>setMeasureActive(!state.measure.active);
+  $('maps-measure-undo').onclick=()=>{state.measure.points.pop();updateMeasurePanel();schedule()};
+  $('maps-measure-clear').onclick=()=>{state.measure.points=[];updateMeasurePanel();schedule()};
+  $('maps-measure-close').onclick=()=>setMeasureActive(false);
   $('maps-other-cities').onchange=e=>{if(e.target.value)enterOtherCity(e.target.value);else leaveCity()};
   $('maps-zoom-in').onclick=()=>zoom(1.6);$('maps-zoom-out').onclick=()=>zoom(.625);$('maps-home').onclick=()=>state.secondaryCity?enterOtherCity(state.secondaryCity.id):state.metroMode?enterMetro():state.cityMode?focus(1110,698,23):initial();
   for(const b of document.querySelectorAll('[data-style]'))b.onclick=()=>{state.style=b.dataset.style;document.querySelectorAll('[data-style]').forEach(v=>v.classList.toggle('selected',v===b));schedule()};
@@ -877,10 +921,17 @@
     const elevationReadout=$('maps-altitude-readout');
   area.addEventListener('pointermove',e=>{
     const terrain=state.city?.metropolitan?.terrain;
-    if(!terrain||!state.cityMode||!(state.layers.relief||state.style==='terrain')){
-      elevationReadout.hidden=true;return;
+    if(!state.data){elevationReadout.hidden=true;return;}
+    const rect=area.getBoundingClientRect(),pt=toWorld(e.clientX-rect.left,e.clientY-rect.top);
+    if(!worldAPI.isLand(pt,state.data)){elevationReadout.hidden=true;return;}
+    if(!state.cityMode||!terrain){
+      const index=Math.round(worldAPI.height(pt[0],pt[1]));
+      const biome=worldAPI.biome(pt[0],pt[1]).replace(/-/g,' ');
+      elevationReadout.textContent='XY '+Math.round(pt[0])+', '+Math.round(pt[1])+' · '+biome+' · relief '+index+'/100 (indicatif)';
+      elevationReadout.hidden=false;return;
     }
-    const rect=area.getBoundingClientRect(),pt=toWorld(e.clientX-rect.left,e.clientY-rect.top),g=terrain.grid;
+    if(!(state.layers.relief||state.style==='terrain')){elevationReadout.hidden=true;return;}
+    const g=terrain.grid;
     const x=(pt[0]-g.origin[0])/g.step,y=(pt[1]-g.origin[1])/g.step;
     if(x<0||y<0||x>=g.cols-1||y>=g.rows-1){elevationReadout.hidden=true;return;}
     const i=Math.floor(x),j=Math.floor(y),tx=x-i,ty=y-j,at=(ii,jj)=>g.values[jj*g.cols+ii];
@@ -893,6 +944,6 @@
   $('maps-route').onclick=route;$('maps-route-clear').onclick=()=>{state.route=null;detail.classList.remove('has-detail');detail.innerHTML='<div class="maps-detail-idle"><span class="maps-overline">CARTE GÉOGRAPHIQUE</span><h2>Itinéraire effacé.</h2><p>Sélectionnez une destination ou un autre trajet.</p></div>';schedule()};
   window.addEventListener('resize',()=>{const [w,h]=getDim();const ox=(w/2-state.tx)/state.scale,oy=(h/2-state.ty)/state.scale;const prev=state.baseScale;state.baseScale=Math.min(w/1500,h/1400)*.94;state.scale*=state.baseScale/(prev||state.baseScale);state.tx=w/2-ox*state.scale;state.ty=h/2-oy*state.scale;clamp();resize()});
  }
- async function init(){try{const [r,cityResponse,secondaryResponse]=await Promise.all([fetch('../assets/arelia-map-data.json'),fetch('../assets/vesone-city.json'),fetch('../assets/arelia-other-cities.json'),new Promise(resolve=>{let count=0;const fn=()=>{count++;if(count===2)resolve()};for(const img of [terrain,plan]){if(img.complete&&img.naturalWidth)fn();else{img.addEventListener('load',fn,{once:true});img.addEventListener('error',fn,{once:true})}}})]);if(!r.ok)throw Error('Impossible de charger les données locales');state.data=await r.json();if(!cityResponse.ok)throw Error('Plan urbain de Vésone indisponible');state.city=await cityResponse.json();if(!secondaryResponse.ok)throw Error('Plans des autres villes indisponibles');state.secondaryData=await secondaryResponse.json();state.world=worldAPI.makeWorld(state.data);state.audit=auditAPI.analyze(state.data,state.world);state.data.places.push(...state.world.settlements);state.city.places.forEach(p=>p.cityPOI=true);Object.values(state.world.cityPlans).forEach(city=>city.places.forEach(p=>{p.cityPOI=true;p.cityId=city.id}));Object.values(state.secondaryData.cities).forEach(city=>city.places.forEach(p=>{p.cityPOI=true;p.cityId=city.id}));makeMarkers();setupRoutes();setupMetroRouting();setup();initial();resize();listItems();$('maps-loading').hidden=true;const view=new URLSearchParams(window.location.search).get('vue');if(view==='metropole')enterMetro();else if(view==='vesone')enterCity();else if(state.secondaryData.cities[view]||state.world?.cityPlans?.[view])enterOtherCity(view);}catch(err){$('maps-loading').innerHTML='<span>Erreur de chargement de la carte. Vérifiez les fichiers du site et rechargez la page.</span>';console.error(err)}}
+ async function init(){try{const [r,cityResponse,secondaryResponse]=await Promise.all([fetch('../assets/arelia-map-data.json'),fetch('../assets/vesone-city.json'),fetch('../assets/arelia-other-cities.json'),new Promise(resolve=>{let count=0;const fn=()=>{count++;if(count===2)resolve()};for(const img of [terrain,plan]){if(img.complete&&img.naturalWidth)fn();else{img.addEventListener('load',fn,{once:true});img.addEventListener('error',fn,{once:true})}}})]);if(!r.ok)throw Error('Impossible de charger les données locales');state.data=await r.json();if(!cityResponse.ok)throw Error('Plan urbain de Vésone indisponible');state.city=await cityResponse.json();if(!secondaryResponse.ok)throw Error('Plans des autres villes indisponibles');state.secondaryData=await secondaryResponse.json();state.world=worldAPI.makeWorld(state.data);state.audit=auditAPI.analyze(state.data,state.world);state.data.places.push(...state.world.settlements);state.city.places.forEach(p=>p.cityPOI=true);Object.values(state.world.cityPlans).forEach(city=>city.places.forEach(p=>{p.cityPOI=true;p.cityId=city.id}));Object.values(state.secondaryData.cities).forEach(city=>city.places.forEach(p=>{p.cityPOI=true;p.cityId=city.id}));makeMarkers();setupRoutes();setupMetroRouting();setup();updateMeasurePanel();initial();resize();listItems();$('maps-loading').hidden=true;const view=new URLSearchParams(window.location.search).get('vue');if(view==='metropole')enterMetro();else if(view==='vesone')enterCity();else if(state.secondaryData.cities[view]||state.world?.cityPlans?.[view])enterOtherCity(view);}catch(err){$('maps-loading').innerHTML='<span>Erreur de chargement de la carte. Vérifiez les fichiers du site et rechargez la page.</span>';console.error(err)}}
  init();
 })();

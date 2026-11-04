@@ -13,6 +13,7 @@ const nationalRouting=require('../../site/assets/arelia-national-routing.js');
 const display=require('../../site/assets/arelia-display.js');
 const world=require('../../site/assets/arelia-world.js');
 const audit=require('../../site/assets/arelia-geo-audit.js');
+const measure=require('../../site/assets/arelia-measure.js');
 
 function fakeDOM(search){
  let frames=0;const els=new Map();
@@ -63,7 +64,7 @@ function fakeDOM(search){
  'maps-canvas-area','maps-canvas','maps-results','maps-detail','maps-markers','maps-metro-from','maps-metro-to',
  'maps-metro-trace','maps-metro-clear','maps-metro-mode','maps-scale','maps-zoom-band','maps-count','maps-from',
  'maps-to','maps-other-cities','maps-metro-routing','maps-search','maps-visit-empire','maps-scope-caption',
- 'maps-visit-vesone','maps-visit-metro','maps-audit-open','maps-zoom-in','maps-zoom-out','maps-home','maps-layers',
+ 'maps-visit-vesone','maps-visit-metro','maps-audit-open','maps-measure-toggle','maps-measure-panel','maps-measure-value','maps-measure-hint','maps-measure-relief','maps-measure-undo','maps-measure-clear','maps-measure-close','maps-zoom-in','maps-zoom-out','maps-home','maps-layers',
  'maps-layers-toggle','maps-altitude-readout','maps-route','maps-route-clear','maps-loading'
  ];
  for(const id of tags)els.set(id,new El(id==='maps-canvas'?'canvas':'div',id));
@@ -89,7 +90,7 @@ function fakeDOM(search){
  class FakeImage{constructor(){this.complete=true;this.naturalWidth=1500;this.naturalHeight=1400;this.src=''}addEventListener(){}}
  class FakeObserver{constructor(){}observe(){}disconnect(){}}
  const errors=[];
- const fakeWindow={devicePixelRatio:1,innerWidth:1280,location:{search},AreliaRouting:routing,AreliaDisplay:display,AreliaWorld:world,AreliaNationalRouting:nationalRouting,AreliaGeoAudit:audit,addEventListener:()=>{}};
+ const fakeWindow={devicePixelRatio:1,innerWidth:1280,location:{search},AreliaRouting:routing,AreliaDisplay:display,AreliaWorld:world,AreliaNationalRouting:nationalRouting,AreliaGeoAudit:audit,AreliaMeasure:measure,addEventListener:()=>{}};
  const sandbox={
   document,window:fakeWindow,Image:FakeImage,MutationObserver:FakeObserver,ResizeObserver:FakeObserver,
   fetch:async url=>({ok:true,json:async()=>structuredClone(url.includes('vesone-city')?vesone:url.includes('arelia-other-cities')?others:geo)}),
@@ -116,6 +117,17 @@ async function scenario(query){
  if(query==='?vue=metropole')assert.ok(ui.wrap.classList.contains('maps-metro-mode'));
  if(!query){
    assert.equal(typeof ui.els.get('maps-audit-open').onclick,'function');
+   const b=ui.els.get('maps-measure-toggle');assert.equal(typeof b.onclick,'function');
+   b.onclick();assert.equal(ui.els.get('maps-measure-panel').hidden,false);
+   const area=ui.els.get('maps-canvas-area');
+   const pointer=(type,x,y)=>area.handlers[type].forEach(fn=>fn({type,clientX:x,clientY:y,pointerId:1,pointerType:'mouse',target:{closest:()=>false},preventDefault:()=>{}}));
+   pointer('pointerdown',300,240);pointer('pointerup',300,240);
+   pointer('pointerdown',360,270);pointer('pointerup',360,270);
+   assert.ok(ui.els.get('maps-measure-value').textContent.includes('km'),'Mesure absente');
+   ui.els.get('maps-measure-undo').onclick();
+   ui.els.get('maps-measure-clear').onclick();
+   assert.equal(ui.els.get('maps-measure-value').textContent,'0 km');
+   ui.els.get('maps-measure-close').onclick();assert.equal(ui.els.get('maps-measure-panel').hidden,true);
    ui.els.get('maps-audit-open').onclick();
    const report=ui.els.get('maps-detail').children.map(x=>x?.textContent||'').join(' ');
    assert.ok(report.includes('Franchissements à qualifier'),'Rapport d’audit non affiché');

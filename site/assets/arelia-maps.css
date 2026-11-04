@@ -95,3 +95,19 @@
 .maps-audit-pagination button{font-size:10px;border-radius:5px;border:1px solid #c7b89e;background:#fff;padding:6px 7px;color:#594c3e;cursor:pointer}
 .maps-audit-pagination button:disabled{opacity:.4;cursor:default}
 .maps-audit-pagination span{font-size:10px;color:#66706a;text-align:center;font-weight:700}
+
+/* Arélia Maps 1.6 — mesure et lecture continue du relief. */
+.maps-measure-toggle{border:1px solid #d9e2df;background:#fff;color:#1c4451;border-radius:8px;padding:10px 13px;box-shadow:0 6px 23px #16394920;font:800 12px 'DM Sans',Arial,sans-serif;white-space:nowrap}
+.maps-measure-toggle.selected,.maps-measure-toggle[aria-pressed="true"]{color:#fff;background:#0e7280;border-color:#0e7280}
+.maps-canvas-area.measuring{cursor:crosshair}
+.maps-measure-panel{position:absolute;z-index:8;left:18px;bottom:103px;width:min(310px,calc(100% - 36px));padding:15px 16px;background:#fffffff2;border:1px solid #d7e4e1;border-radius:10px;box-shadow:0 9px 33px #19364432;color:#284852}
+.maps-measure-panel[hidden]{display:none}
+.maps-measure-head{display:flex;justify-content:space-between;align-items:center;font-size:12px}
+.maps-measure-head button{background:transparent;border:0;font-size:22px;cursor:pointer;color:#587682}
+.maps-measure-panel output{display:block;font:500 29px 'Playfair Display',Georgia,serif;color:#0c6873;margin:6px 0}
+.maps-measure-panel p{font:500 11px/1.55 'DM Sans',Arial,sans-serif;color:#425d66;margin:5px 0}
+.maps-measure-panel small{display:block;font-size:10px;color:#73868c}
+.maps-measure-actions{display:flex;gap:8px;margin-top:12px}
+.maps-measure-actions button{background:#edf4f1;border:1px solid #d9e5df;border-radius:6px;padding:8px;color:#28515a;font-size:10px;font-weight:800;cursor:pointer}
+.maps-measure-actions button:disabled{opacity:.45;cursor:default}
+@media(max-width:700px){.maps-measure-toggle{font-size:10px;padding:8px}.maps-measure-panel{left:10px;bottom:82px;width:min(260px,calc(100% - 20px));padding:11px}}

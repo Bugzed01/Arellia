@@ -43,6 +43,10 @@ jobs:
         run: |
           node --check site/assets/arelia-national-routing.js
           node src/maps/national_route_validate.cjs
+      - name: Tester les mesures et leurs avertissements
+        run: |
+          node --check site/assets/arelia-measure.js
+          node src/maps/measure_validate.cjs
       - name: Contrôler les franchissements et les tracés sur l'eau
         run: |
           node --check site/assets/arelia-geo-audit.js

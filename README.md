@@ -202,3 +202,9 @@ Les validations `src/maps/world_validate.cjs` et `src/maps/geo_audit_validate.cj
 La commande **Ouvrages ?** affiche le nombre de détours réalisés et une file de vérification paginée (16 éléments par page), avec recentrage sur les coordonnées des croisements.
 
 **Limites :** les lignes sont fictives et non cadastrales. Un tracé terrestre valide n'établit pas un accès public, un franchissement constructible, un gabarit de route, une vitesse de circulation ni un ouvrage existant. Les croisements de fleuves restent des points non qualifiés.
+
+## Arélia Maps 1.6 — mesurer et lire le terrain
+
+Le bouton **↔ Mesurer** permet d'ajouter des points en cliquant sur la carte, tout en conservant le déplacement par glissement, le zoom, l'annulation et l'effacement. La distance cumulée est affichée en kilomètres dans le référentiel XY synthétique normalisé, avec une indication de franchissement éventuel de l'eau. Il s'agit de segments à vol d'oiseau, **pas d'un itinéraire routier** ni d'une distance terrestre réelle.
+
+Le survol montre la position XY, le biome et un indice de relief fictif sur 100, **pas une altitude en mètres**. Les détails du relief métropolitain restent distincts. Code et tests : `site/assets/arelia-measure.js`, `src/maps/measure_validate.cjs`, `src/maps/viewer_smoke.cjs`.
