@@ -220,6 +220,11 @@
    const one=document.createElement('div');one.className='maps-route-message';
    one.textContent=tally.roadCrossings+' passages routiers et '+tally.railwayCrossings+' ferroviaires au croisement de cours d’eau.';
    const two=document.createElement('p');two.textContent=tally.lakeConflicts+' portions sur le lac Orélys et '+tally.coastalConflicts+' portions hors terre à vérifier.';
+   const correction=state.world?.landCorrections;
+   const repaired=document.createElement('p');repaired.className='maps-route-audit';
+   repaired.textContent=correction
+    ?'Détours terrestres validés : '+correction.arterials+' liaison(s) régionales, '+correction.feeders+' desserte(s) rurales, '+correction.unresolved.length+' cas non résolu(s).'
+    :'Détours terrestres en cours de calcul.';
    const three=document.createElement('p');
    three.textContent=state.nationalGraph
     ?state.nationalGraph.count.unqualifiedCrossings+' croisements routiers sans raccordement explicite.'
@@ -227,20 +232,33 @@
    const legend=document.createElement('p');
    legend.textContent='Cercles orange ou bleus : ponts potentiels. Croix rouges : conflits de tracé. Les symboles ne prouvent pas l’existence d’ouvrages.';
    const anomalies=[
-     ...data.lakeConflicts.slice(0,10).map(a=>({...a,label:'Lac Orélys'})),
-     ...data.coastalConflicts.slice(0,10).map(a=>({...a,label:'Hors terre'})),
-     ...data.bridges.filter(b=>b.mode==='route').slice(0,8).map(a=>({...a,label:'Franchissement fluvial'}))
+      ...data.lakeConflicts.map(x=>({...x,label:'Lac Orélys'})),
+      ...data.coastalConflicts.map(x=>({...x,label:'Hors terre'})),
+      ...data.bridges.map(x=>({...x,label:x.mode==='rail'?'Croisement ferroviaire · eau':'Croisement routier · eau'}))
    ];
    const list=document.createElement('div');list.className='maps-audit-list';
-   const subtitle=document.createElement('p');subtitle.textContent='Points à examiner (sélection indicative) :';
-   list.append(subtitle);
-   for(const issue of anomalies){
-     const button=document.createElement('button');button.type='button';button.className='maps-audit-item';
-     button.textContent=issue.label+' · '+issue.lineId+' · XY '+Math.round(issue.point[0])+', '+Math.round(issue.point[1]);
-     button.onclick=()=>{state.layers.infrastructure=true;focus(issue.point[0],issue.point[1],15);detail.classList.add('has-detail')};
-     list.append(button);
-   }
-   detail.append(lead,title,one,two,three,legend,list);schedule();
+   const subtitle=document.createElement('p');subtitle.textContent='Éléments à qualifier, 16 par page :';
+   let page=0;const pageSize=16;
+   const renderPage=()=>{
+     list.replaceChildren(subtitle);
+     for(const issue of anomalies.slice(page*pageSize,(page+1)*pageSize)){
+       const button=document.createElement('button');button.type='button';button.className='maps-audit-item';
+       button.textContent=issue.label+' · '+issue.lineId+' · XY '+Math.round(issue.point[0])+', '+Math.round(issue.point[1]);
+       button.onclick=()=>{state.layers.infrastructure=true;focus(issue.point[0],issue.point[1],15);detail.classList.add('has-detail')};
+       list.append(button);
+     }
+     const bar=document.createElement('div');bar.className='maps-audit-pagination';
+     const prev=document.createElement('button');prev.type='button';prev.className='maps-audit-previous';
+     prev.textContent='← Précédent';prev.disabled=page===0;prev.onclick=()=>{if(page>0){page--;renderPage()}};
+     const total=document.createElement('span');
+     total.textContent=anomalies.length?'Page '+(page+1)+' / '+Math.ceil(anomalies.length/pageSize)+' · '+anomalies.length+' points':'Aucun point à qualifier';
+     const next=document.createElement('button');next.type='button';next.className='maps-audit-next';
+     next.textContent='Suivant →';next.disabled=(page+1)*pageSize>=anomalies.length;
+     next.onclick=()=>{if(!next.disabled){page++;renderPage()}};
+     bar.append(prev,total,next);list.append(bar);
+   };
+   renderPage();
+   detail.append(lead,title,one,two,repaired,three,legend,list);schedule();
  }
 
  function drawNationalSettlements(){
