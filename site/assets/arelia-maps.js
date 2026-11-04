@@ -8,10 +8,11 @@
  const carto=window.AreliaDisplay;if(!carto)throw Error('Règles de rendu indisponibles');
  const worldAPI=window.AreliaWorld;if(!worldAPI)throw Error('Moteur territorial indisponible');
  const urbanAPI=window.AreliaUrbanRouting;if(!urbanAPI)throw Error('Routage urbain indisponible');
+ const roadGapAPI=window.AreliaRoadGaps;if(!roadGapAPI)throw Error('Diagnostic des ruptures routières indisponible');
  const detailAPI=window.AreliaDetail;if(!detailAPI)throw Error('Détails géographiques indisponibles');
  const auditAPI=window.AreliaGeoAudit;if(!auditAPI)throw Error('Outil de diagnostic indisponible');
  const measureAPI=window.AreliaMeasure;if(!measureAPI)throw Error('Outil de mesure indisponible');
- const state={urbanRouter:null,markerNodes:new Map(),data:null,images:{},style:'game',layers:{proposed:false,details:true,shading:true,roads:true,rail:true,water:true,places:true,labels:true,urban:true,canals:true,zones:true,transit:true,metro:true,metroRail:true,relief:false,lowlands:false,infrastructure:false},category:'all',query:'',selected:null,city:null,secondaryData:null,secondaryCity:null,world:null,audit:null,measure:{active:false,points:[]},cityMode:false,metroMode:false,scale:1,baseScale:1,tx:0,ty:0,route:null,nationalGraph:null,metroRoute:null,roadGraph:null,railGraph:null,drag:null,raf:0,dpr:1};
+ const state={urbanRouter:null,urbanCityMap:null,gapReports:new Map(),gapFocus:null,markerNodes:new Map(),data:null,images:{},style:'game',layers:{proposed:false,gaps:false,details:true,shading:true,roads:true,rail:true,water:true,places:true,labels:true,urban:true,canals:true,zones:true,transit:true,metro:true,metroRail:true,relief:false,lowlands:false,infrastructure:false},category:'all',query:'',selected:null,city:null,secondaryData:null,secondaryCity:null,world:null,audit:null,measure:{active:false,points:[]},cityMode:false,metroMode:false,scale:1,baseScale:1,tx:0,ty:0,route:null,nationalGraph:null,metroRoute:null,roadGraph:null,railGraph:null,drag:null,raf:0,dpr:1};
  const terrain=new Image(),plan=new Image();terrain.src='../assets/arelia-terrain.webp';plan.src='../assets/arelia-plan.webp';state.images={terrain,plan};
  const coord=([x,y])=>[x*state.scale+state.tx,y*state.scale+state.ty];
  const num=(n)=>Math.round(n).toLocaleString('fr-FR');
@@ -887,10 +888,35 @@
    }
    ctx.restore();
  }
+ function drawRoadGaps(){
+   if(!state.layers.gaps||!state.cityMode)return;
+   const cityId=state.secondaryCity?.id||'vesone';
+   let report;
+   try{report=gapReport(cityId)}catch(error){console.error(error);return}
+   if(!report?.gaps?.length)return;
+   const radius=9/state.scale;
+   ctx.save();ctx.textAlign='center';ctx.textBaseline='middle';
+   ctx.font='700 '+(11/state.scale)+'px Arial';
+   for(let i=0;i<report.gaps.length;i++){
+     const gap=report.gaps[i],pt=gap.nearest?.from||gap.center;
+     if(!nearViewport(pt))continue;
+     const chosen=state.gapFocus===gap.id;
+     // Un trait d'examen n'est jamais traité comme une portion navigable.
+     if(chosen&&gap.candidate){
+       polyline([gap.candidate.from,gap.candidate.to],'rgba(255,255,255,.95)',6,[4,4]);
+       polyline([gap.candidate.from,gap.candidate.to],'#9d599e',2.4,[4,4]);
+     }
+     ctx.beginPath();ctx.arc(pt[0],pt[1],chosen?radius*1.35:radius,0,2*Math.PI);
+     ctx.fillStyle=gap.candidate?'#9d593f':'#9f4247';ctx.fill();
+     ctx.lineWidth=(chosen?3:2)/state.scale;ctx.strokeStyle='#fffaf1';ctx.stroke();
+     ctx.fillStyle='#ffffff';ctx.fillText(String(i+1),pt[0],pt[1]+.35/state.scale);
+   }
+   ctx.restore();
+ }
  function draw(){if(!state.data)return;const [w,h]=getDim();if(!w||!h)return;ctx.setTransform(state.dpr,0,0,state.dpr,0,0);ctx.fillStyle=state.style==='night'?'#0a283b':'#c0d5d9';ctx.fillRect(0,0,w,h);ctx.save();ctx.setTransform(state.dpr*state.scale,0,0,state.dpr*state.scale,state.tx*state.dpr,state.ty*state.dpr);
   const img=state.style==='night'||state.style==='terrain'?terrain:plan;
   if(img.complete&&img.naturalWidth){if(state.style==='night')ctx.filter='brightness(.52) saturate(.65) hue-rotate(20deg)';else if(state.style==='game')ctx.filter='brightness(1.06) saturate(.86) contrast(.97)';ctx.drawImage(img,0,0,1500,1400);ctx.filter='none';}
-  drawNationalHillshade();markerRoadNodes();drawProposedConnectors();drawRoute();drawMetroRoute();drawMeasure();ctx.restore();
+  drawNationalHillshade();markerRoadNodes();drawProposedConnectors();drawRoadGaps();drawRoute();drawMetroRoute();drawMeasure();ctx.restore();
   if(state.layers.labels && state.scale<state.baseScale*7){state.data.labels.forEach(p=>drawLabel(p.x,p.y,p.name,p.kind));}
   drawVillageLabels();drawRoadShields();drawUrbanRoadLabels();syncMarkers();scaleBar();}
  function scaleBar(){
@@ -1089,8 +1115,17 @@
       water:[...(v.water||[]),...(metro.terrain?.waterways||[])]
     };
     const cityMap={...state.secondaryData.cities,...state.world.cityPlans,vesone:urbanVesone};
+    state.urbanCityMap=cityMap;
     state.urbanRouter=urbanAPI.createService(state.data,state.world,cityMap,state.nationalGraph);
     return state.urbanRouter;
+  }
+  function gapReport(cityId){
+    if(state.gapReports.has(cityId))return state.gapReports.get(cityId);
+    const router=ensureUrbanRouter(),city=state.urbanCityMap?.[cityId];
+    const graph=router.localCity(cityId);
+    if(!graph||!city)return null;
+    const report=roadGapAPI.analyze(graph,city,state.data);
+    state.gapReports.set(cityId,report);return report;
   }
   function route(){
     const from=$('maps-from').value,to=$('maps-to').value;
@@ -1150,12 +1185,12 @@
     }
   }
 
- function enterCity(){state.secondaryCity=null;host.closest('.arelia-map-wrap').classList.remove('maps-secondary-mode');$('maps-other-cities').value='';state.metroRoute=null;$('maps-metro-routing').hidden=true;state.cityMode=true;state.metroMode=false;host.closest('.arelia-map-wrap').classList.remove('maps-metro-mode');state.category='all';state.query='';$('maps-search').value='';state.selected=null;state.route=null;
+ function enterCity(){state.gapFocus=null;state.secondaryCity=null;host.closest('.arelia-map-wrap').classList.remove('maps-secondary-mode');$('maps-other-cities').value='';state.metroRoute=null;$('maps-metro-routing').hidden=true;state.cityMode=true;state.metroMode=false;host.closest('.arelia-map-wrap').classList.remove('maps-metro-mode');state.category='all';state.query='';$('maps-search').value='';state.selected=null;state.route=null;
   host.closest('.arelia-map-wrap').classList.add('maps-city-mode');$('maps-visit-empire').hidden=false;
   $('maps-scope-caption').textContent='PLAN DE VÉSONE · TRACÉS PROVISOIRES';
   document.querySelectorAll('[data-cat]').forEach(b=>b.classList.toggle('is-active',b.dataset.cat==='all'));
   focus(1110,698,23);listItems();renderCityOverview();schedule();}
- function leaveCity(){state.secondaryCity=null;host.closest('.arelia-map-wrap').classList.remove('maps-secondary-mode');$('maps-other-cities').value='';state.metroRoute=null;$('maps-metro-routing').hidden=true;state.cityMode=false;state.metroMode=false;host.closest('.arelia-map-wrap').classList.remove('maps-metro-mode');state.category='all';state.query='';$('maps-search').value='';state.selected=null;state.route=null;
+ function leaveCity(){state.gapFocus=null;state.secondaryCity=null;host.closest('.arelia-map-wrap').classList.remove('maps-secondary-mode');$('maps-other-cities').value='';state.metroRoute=null;$('maps-metro-routing').hidden=true;state.cityMode=false;state.metroMode=false;host.closest('.arelia-map-wrap').classList.remove('maps-metro-mode');state.category='all';state.query='';$('maps-search').value='';state.selected=null;state.route=null;
   host.closest('.arelia-map-wrap').classList.remove('maps-city-mode');$('maps-visit-empire').hidden=true;
   $('maps-scope-caption').textContent='CARTE NATIONALE · NORD ↑';
   document.querySelectorAll('[data-cat]').forEach(b=>b.classList.toggle('is-active',b.dataset.cat==='all'));
@@ -1177,7 +1212,7 @@
   }
   function enterOtherCity(id){
   const city=state.secondaryData?.cities?.[id]||state.world?.cityPlans?.[id];if(!city)return;
-  state.cityMode=true;state.metroMode=false;state.secondaryCity=city;
+  state.cityMode=true;state.metroMode=false;state.secondaryCity=city;state.gapFocus=null;
   state.metroRoute=null;state.route=null;state.selected=null;state.category='all';state.query='';
   $('maps-search').value='';$('maps-other-cities').value=id;
   $('maps-metro-routing').hidden=true;
@@ -1195,18 +1230,45 @@
   button.textContent='Diagnostiquer le réseau routier';
   button.onclick=()=>{
    try{
-    const graph=ensureUrbanRouter().localCity(cityId);
-    if(!graph)return;
-    const output=document.createElement('p');
-    output.className='maps-network-status';
-    output.textContent=graph.count.baseComponents+' composantes initiales, '+
-     graph.count.components+' restantes ; '+graph.count.proposedConnectors+
+    const graph=ensureUrbanRouter().localCity(cityId),report=gapReport(cityId);
+    if(!graph||!report)return;
+    const output=document.createElement('p');output.className='maps-network-status';
+    output.textContent=graph.count.baseComponents+' composantes initiales → '+
+     report.components+' restantes ; '+graph.count.proposedConnectors+
      ' raccordements proposés, '+graph.count.rejectedConnectors+
-     ' candidats rejetés (eau, limites ou croisements non attestés).';
-    detail.append(output);button.disabled=true;
-    state.layers.proposed=true;
+     ' candidatures rejetées. '+report.isolated+
+     ' fragment(s) isolé(s) au sein de ce plan.';
+    detail.append(output);
+    if(report.gaps.length){
+     const note=document.createElement('p');note.className='maps-road-gaps-note';
+     note.textContent='Touchez une rupture pour centrer la carte. Rouge : passage non démontré ; brun : terrain franchissable dans le modèle, mais route non attestée.';
+     const list=document.createElement('div');list.className='maps-road-gaps-list';
+     for(let index=0;index<report.gaps.length;index++){
+      const gap=report.gaps[index],entry=document.createElement('button');
+      entry.type='button';entry.className='maps-road-gap-item';
+      const name=gap.roads.slice(0,2).join(', ')||'Voie inconnue';
+      const distance=gap.nearest?.distanceUnits;
+      entry.textContent=(index+1)+'. '+name+' · écart minimal '+
+       (distance===undefined?'inconnu':distance.toLocaleString('fr-FR',{maximumFractionDigits:3})+' XY')+
+       ' · '+(gap.candidate?'piste terrestre à qualifier':'franchissement ou intersection à expertiser');
+      entry.onclick=()=>{
+       state.gapFocus=gap.id;
+       const p=gap.nearest?.from||gap.center;
+       focus(p[0],p[1],40);
+       for(const control of list.children)control.classList.toggle('selected',control===entry);
+      };
+      list.append(entry);
+     }
+     detail.append(note,list);
+    }else{
+     const note=document.createElement('p');note.className='maps-road-gaps-note';
+     note.textContent='Aucun fragment isolé dans ce plan après raccordements proposés. Ces raccordements ne sont pas encore des ouvrages qualifiés.';
+     detail.append(note);
+    }
+    button.disabled=true;
+    state.gapFocus=null;state.layers.proposed=true;state.layers.gaps=true;
     for(const control of document.querySelectorAll('[data-layer]'))
-     if(control.dataset.layer==='proposed')control.checked=true;
+     if(control.dataset.layer==='proposed'||control.dataset.layer==='gaps')control.checked=true;
     schedule();
    }catch(error){console.error(error);}
   };
