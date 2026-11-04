@@ -7,7 +7,7 @@
  root.AreliaWorld=api;
 })(typeof window==='undefined'?globalThis:window,function(){
  'use strict';
- const VERSION='1.7.0',SEED=20261103;
+ const VERSION='1.8.0',SEED=20261103;
  const round=n=>Math.round(n*1000)/1000;
  const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
  function rng(n){let seed=n>>>0;return ()=>{seed=(1664525*seed+1013904223)>>>0;return seed/4294967296}}
@@ -254,7 +254,7 @@
     const large=idx%13===0,medium=idx%5===0,radius=large?11+rand()*4:medium?6+rand()*3:3+rand()*3;
     const pop=large?'centre local':medium?'bourg':'village';
     const item={id:'localite-'+String(idx+1).padStart(4,'0'),name,x:round(x),y:round(y),radius:round(radius),kind:pop,biome:type,seed:SEED+idx*917,category:'bourg',type:'Localité fictive proposée',wiki:'arelia',
-     description:'Implantation cartographique provisoire — '+(large?'centre local':medium?'bourg':'village')+'.',status:'Proposition non canonique'};
+     description:'Implantation cartographique provisoire — '+(large?'centre local':medium?'bourg':'village')+'.',bearing:round(Math.atan2(closest.point[1]-y,closest.point[0]-x)),status:'Proposition non canonique'};
     settlements.push(item);
     const path=[pt,point((x+closest.point[0])*.54+(rand()-.5)*8,(y+closest.point[1])*.54+(rand()-.5)*8),closest.point];
     feeders.push({id:'desserte-'+idx,kind:'desserte',settlement:item.id,road_id:closest.roadId,points:path});
@@ -281,7 +281,7 @@
   }
   return streams;
  }
- function buildCityPlan(item){
+ function buildCityPlan(item,geo){
   const rand=rng(Math.round(item.x*31+item.y*83)+SEED),major=item.category==='metropole';
   const r=major?63:42,ry=major?50:32,cx=item.x,cy=item.y;
   const theme=item.id==='katoru'?'nordique':item.y>950?'aride':item.x>990?'forestier':'interieur';
@@ -292,35 +292,74 @@
   else city.water.push({id:item.id+'-ruisseau',name:'Cours d’eau local proposé',width:1.45,points:[xy(-r*.96,-10),xy(-r*.6,-5),xy(-r*.22,-7),xy(r*.3,2),xy(r*.96,11)]});
   for(let i=0;i<9;i++){
    const angle=2*Math.PI*i/9+.23;
-   const pts=[];for(let t=0;t<=12;t++){const a=t/12,rr=r*(.12+a*.82),wobble=.06*Math.sin(a*5+i);pts.push(xy(Math.cos(angle+wobble)*rr,Math.sin(angle+wobble)*rr*.77));}
-   city.avenues.push({id:item.id+'-rad-'+i,class:i%3===0?'avenue':'boulevard',points:pts});
+   const pts=[];for(let t=0;t<=12;t++){const a=t/12,rr=r*a*.94,wobble=.045*Math.sin(a*5+i);pts.push(xy(Math.cos(angle+wobble)*rr,Math.sin(angle+wobble)*rr*.77));}
+   // Les avenues rayonnent d'un carrefour central réel et s'arrêtent à la côte.
+   const landPts=[];
+   for(const p of pts){if(geo&&!isLand(p,geo))break;landPts.push(p)}
+   if(landPts.length>=4)city.avenues.push({id:item.id+'-rad-'+i,class:i%3===0?'avenue':'boulevard',points:landPts});
   }
   for(let j=0;j<2;j++){
    const pts=[];for(let k=0;k<80;k++){const a=2*Math.PI*k/79,m=1+.075*Math.sin(a*5+j);pts.push(xy(Math.cos(a)*r*(.44+j*.28)*m,Math.sin(a)*ry*(.44+j*.28)*m));}
-   city.avenues.push({id:item.id+'-loop-'+j,class:'boulevard',points:pts});
+   let segment=[],part=0;
+   // Découpage des rocades côtières en tronçons terrestres.
+   for(const p of pts){
+    if(!geo||isLand(p,geo))segment.push(p);
+    else {if(segment.length>=3)city.avenues.push({id:item.id+'-loop-'+j+'-'+part++,class:'boulevard',points:segment});segment=[];}
+   }
+   if(segment.length>=3)city.avenues.push({id:item.id+'-loop-'+j+'-'+part,class:'boulevard',points:segment});
   }
-  for(let i=0;i<90;i++){
-   const angle=rand()*Math.PI*2,d=7+rand()*(r-8),x=d*Math.cos(angle),y=.73*d*Math.sin(angle),theta=rand()*Math.PI*2,pts=[];
-   for(let k=-3;k<=3;k++){const t=k*2.2;pts.push(xy(x+t*Math.cos(theta)+Math.sin(k*.8+i),y+t*Math.sin(theta)+Math.sin(k*.55+i)*.6));}
-   city.streets.push({id:item.id+'-road-'+i,class:'rue',points:pts});
+  // Les rues locales partent maintenant d'un sommet d'avenue.
+  let nStreet=0,attemptStreet=0;
+  const radials=city.avenues.filter(a=>a.id.includes('-rad-'));
+  while(nStreet<110&&attemptStreet++<1800&&radials.length){
+   const avenue=radials[Math.floor(rand()*radials.length)],line=avenue.points;
+   const k=2+Math.floor(rand()*Math.max(1,line.length-4)),a=line[k-1],p=line[k],b=line[k+1];
+   const d=distance(a,b);if(d<.1)continue;
+   const nx=-(b[1]-a[1])/d,ny=(b[0]-a[0])/d,side=rand()>.5?1:-1;
+   const reach=3.5+rand()*11;
+   const midpoint=point(p[0]+nx*reach*.5*side,p[1]+ny*reach*.5*side);
+   const end=point(p[0]+nx*reach*side+(rand()-.5)*1.6,p[1]+ny*reach*side+(rand()-.5)*1.6);
+   const pts=[p,midpoint,end];
+   if(!pts.every(q=>inside(q,city.outline))||geo&&!pathOnLand(pts,geo))continue;
+   city.streets.push({id:item.id+'-road-'+nStreet,class:'rue',points:pts,attachedTo:avenue.id});
+   nStreet++;
   }
   for(let i=0;i<8;i++){
    const a=i*2.399+item.x/89,d=r*(.4+.22*rand()),x=Math.cos(a)*d,y=Math.sin(a)*d*.7;
    city.parks.push({id:item.id+'-parc-'+i,polygon:irregular(cx+x,cy+y,3.5+rand()*5,3+rand()*4,10,i+SEED)});
   }
   const minDistance=(pt,poly)=>Math.min(...poly.points.slice(1).map((p,i)=>segmentDistance(pt,poly.points[i],p).distance));
-  let attempt=0;const target=major?650:430,centres=[];
-  while(city.buildings.length<target&&attempt++<target*22){
-   const a=rand()*Math.PI*2,d=Math.sqrt(rand())*r*.86,x=cx+Math.cos(a)*d,y=cy+Math.sin(a)*d*.78;
-   const pt=[x,y];
+  const roofs=theme==='aride'?['#d9c9a2','#c6b59b','#e6d5b4']:theme==='nordique'?['#c3ced1','#c1b8aa','#d0c5ba']:['#c4bca7','#d6c6ae','#b4c3b0'];
+  const streets=[...city.streets,...city.avenues],target=major?650:430,accepted=new Map();
+  const spatialCell=3;
+  function nearby(p){
+   const i=Math.floor(p[0]/spatialCell),j=Math.floor(p[1]/spatialCell);
+   for(let dx=-1;dx<=1;dx++)for(let dy=-1;dy<=1;dy++){
+    for(const q of accepted.get((i+dx)+','+(j+dy))||[])if(distance(p,q)<1.85)return true;
+   }
+   return false;
+  }
+  function store(p){
+   const key=Math.floor(p[0]/spatialCell)+','+Math.floor(p[1]/spatialCell);
+   if(!accepted.has(key))accepted.set(key,[]);
+   accepted.get(key).push(p);
+  }
+  let attempt=0;
+  while(city.buildings.length<target&&attempt++<target*42&&streets.length){
+   const road=streets[Math.floor(rand()*streets.length)],line=road.points;
+   const idx=Math.floor(rand()*(line.length-1)),a=line[idx],b=line[idx+1],d=distance(a,b);
+   if(d<.1)continue;
+   const t=.08+rand()*.84,ux=(b[0]-a[0])/d,uy=(b[1]-a[1])/d,side=rand()>.5?1:-1;
+   const gap=1.35+rand()*2.65,x=a[0]*(1-t)+b[0]*t-uy*gap*side,y=a[1]*(1-t)+b[1]*t+ux*gap*side,pt=[x,y];
+   if(!inside(pt,city.outline)||geo&&!isLand(pt,geo))continue;
    if(city.water.some(w=>minDistance(pt,w)<w.width*.5+2))continue;
-   if(city.avenues.some(w=>minDistance(pt,w)<1.65))continue;
-   if(centres.some(p=>Math.abs(p[0]-x)<2.7&&Math.abs(p[1]-y)<2.9&&distance(p,pt)<3.5))continue;
-   centres.push(pt);
-   const w=.75+rand()*1.55,h=.65+rand()*1.5,angle=.35*rand()+a*.26;
-   const roof=(theme==='aride'?['#d9c9a2','#c6b59b','#e6d5b4']:theme==='nordique'?['#c3ced1','#c1b8aa','#d0c5ba']:['#c4bca7','#d6c6ae','#b4c3b0'])[Math.floor(rand()*3)];
-   const polygon=[[-w,-h],[w,-h],[w,h],[-w,h]].map(([xx,yy])=>point(x+xx*Math.cos(angle)-yy*Math.sin(angle),y+xx*Math.sin(angle)+yy*Math.cos(angle)));
-   city.buildings.push({id:item.id+'-bld-'+city.buildings.length,polygon,roof});
+   if(city.parks.some(p=>inside(pt,p.polygon)))continue;
+   if(nearby(pt))continue;
+   const width=.52+rand()*1.1,depth=.5+rand()*1,angle=Math.atan2(uy,ux),co=Math.cos(angle),si=Math.sin(angle);
+   const polygon=[[-width,-depth],[width,-depth],[width,depth],[-width,depth]].map(([xx,yy])=>point(x+xx*co-yy*si,y+xx*si+yy*co));
+   if(!polygon.every(p=>inside(p,city.outline)&&(!geo||isLand(p,geo))))continue;
+   store(pt);
+   city.buildings.push({id:item.id+'-bld-'+city.buildings.length,polygon,roof:roofs[Math.floor(rand()*3)],adjacentRoad:road.id});
   }
   for(let i=0;i<5;i++){
    const a=i*Math.PI*2/5+.4,d=r*.44;
@@ -345,7 +384,7 @@
   }
   const streams=makeStreams(geo);
   const newCities=geo.places.filter(p=>['ville','metropole'].includes(p.category)&&!['occidian','orientale','estrel'].includes(p.id));
-  const cityPlans=Object.fromEntries(newCities.map(c=>[c.id,buildCityPlan(c)]));
+  const cityPlans=Object.fromEntries(newCities.map(c=>[c.id,buildCityPlan(c,geo)]));
   return {version:VERSION,seed:SEED,provisional:true,land,arterials,settlements,feeders,streams,cityPlans,landCorrections,
    meta:{scope:'Toute l’île, détails procéduraux indicatifs',status:'Proposition non canonique',warning:'Ne représente pas un cadastre, les altitudes ou la navigation réelle.'}};
  }
@@ -387,8 +426,11 @@
     // Hashing de la frontière partagée : les segments rejoignent la cellule adjacente.
     const lh=oy+TILE*hash(i,j,741),rh=oy+TILE*hash(i+1,j,741);
     const tx=ox+TILE*hash(i,j,973),bx=ox+TILE*hash(i,j+1,973);
-    tracks.push({kind:'rural',points:[point(ox,lh),point(ox+TILE*.35,(lh+rh)*.5+(rand()-.5)*7),point(ox+TILE*.68,(lh+rh)*.5+(rand()-.5)*7),point(ox+TILE,rh)]});
-    tracks.push({kind:'rural',points:[point(tx,oy),point((tx+bx)*.5+(rand()-.5)*6,oy+TILE*.4),point((tx+bx)*.5+(rand()-.5)*6,oy+TILE*.71),point(bx,oy+TILE)]});
+    // Deux traversées raccordées au même carrefour et aux cellules voisines.
+    // Les raccords de bordure sont définis par le même hachage partagé.
+    const core=point(ox+TILE*(.43+hash(i,j,615)*.14),oy+TILE*(.43+hash(i,j,616)*.14));
+    tracks.push({kind:'rural',points:[point(ox,lh),point(ox+TILE*.26,lh*.68+core[1]*.32),core,point(ox+TILE*.76,rh*.62+core[1]*.38),point(ox+TILE,rh)]});
+    tracks.push({kind:'rural',points:[point(tx,oy),point(tx*.65+core[0]*.35,oy+TILE*.25),core,point(bx*.63+core[0]*.37,oy+TILE*.76),point(bx,oy+TILE)]});
     if(kind==='cultures'||kind==='prairie'){
       for(let k=0;k<4;k++){
         const x=ox+3+rand()*18,y=oy+3+rand()*18;
@@ -487,23 +529,63 @@
   if(cityTileCache.size>CITY_CACHE_LIMIT)cityTileCache.delete(cityTileCache.keys().next().value);
   return result;
  }
- const townCache=new Map();
- function townPlan(town){
-  if(townCache.has(town.id))return townCache.get(town.id);
-  const rand=rng(town.seed),cx=town.x,cy=town.y,r=town.radius,roads=[],houses=[];
-  for(let k=0;k<10;k++){
-   const theta=k*Math.PI/5+rand()*.15,pts=[];
-   for(let j=0;j<6;j++){const f=j/5;pts.push(point(cx+(f-.16)*r*1.6*Math.cos(theta)+Math.sin(f*8+k)*.35,cy+(f-.16)*r*1.3*Math.sin(theta)+Math.cos(f*7+k)*.3));}
-   roads.push({points:pts});
+ // Bourgs organiques : voies raccordées, bâti aligné et orientation selon l'accès routier.
+ const townCache=new Map(),MAX_TOWN_CACHE=120;
+ function townPlan(town,geo){
+  const id=town.id+(geo?':terre':'');
+  if(townCache.has(id)){const existing=townCache.get(id);townCache.delete(id);townCache.set(id,existing);return existing;}
+  const rand=rng(town.seed),cx=town.x,cy=town.y,r=town.radius;
+  const angle=Number.isFinite(town.bearing)?town.bearing:.21,co=Math.cos(angle),si=Math.sin(angle);
+  const xy=(u,v)=>point(cx+u*co-v*si,cy+u*si+v*co);
+  const roads=[],houses=[],centres=[];
+  const clear=poly=>!geo||poly.every(p=>isLand(p,geo));
+  const safeLine=pts=>!geo||pathOnLand(pts,geo);
+  function road(coords,kind='locale'){
+   const pts=coords.map(([u,v])=>xy(u,v));
+   if(!safeLine(pts))return false;
+   roads.push({points:pts,kind});return true;
   }
+  // Rue impériale et voies secondaires naissent sur des carrefours identiques.
+  const rMain=r*.85;
+  road([[-rMain,0],[-r*.56,0],[0,0],[r*.54,0],[rMain,0]],'principale');
+  road([[0,-r*.62],[0,0],[0,r*.62]],'principale');
+  for(const u of [-.52,-.26,.26,.52]){
+   for(const side of [-1,1]){
+    road([[u*r,0],[u*r,side*r*.19],[u*r+.12*r*Math.sin(u*7),side*r*.42]],'locale');
+   }
+  }
+  for(const v of [-.36,-.2,.2,.36]){
+   // Deux traverses ancrées sur les voies perpendiculaires existantes.
+   road([[-r*.52,v*r],[-r*.26,v*r],[0,v*r],[r*.26,v*r],[r*.52,v*r]],'rue');
+  }
+  // Construction par parcelles autour d'une voie, plutôt que poussière aléatoire.
   const count=town.kind==='centre local'?260:town.kind==='bourg'?150:75;
-  for(let i=0;i<count;i++){
-   const a=rand()*Math.PI*2,d=Math.sqrt(rand())*r*.85,x=cx+d*Math.cos(a),y=cy+d*.7*Math.sin(a);
-   const w=.18+rand()*.38,h=.23+rand()*.4,theta=a*.35;
-   const polygon=[[-w,-h],[w,-h],[w,h],[-w,h]].map(([u,v])=>point(x+u*Math.cos(theta)-v*Math.sin(theta),y+u*Math.sin(theta)+v*Math.cos(theta)));
-   houses.push({polygon});
+  let attempts=0;
+  while(houses.length<count&&attempts++<count*24&&roads.length){
+   const roadObj=roads[Math.floor(rand()*roads.length)];
+   const pts=roadObj.points;
+   const segment=Math.floor(rand()*(pts.length-1));
+   const a=pts[segment],b=pts[segment+1],d=distance(a,b);
+   if(d<.1)continue;
+   const t=.05+rand()*.9,side=rand()>.5?1:-1;
+   const ux=(b[0]-a[0])/d,uy=(b[1]-a[1])/d;
+   const gap=.52+rand()*.72;
+   const x=a[0]+t*(b[0]-a[0])-uy*gap*side,y=a[1]+t*(b[1]-a[1])+ux*gap*side;
+   const localU=(x-cx)*co+(y-cy)*si,localV=-(x-cx)*si+(y-cy)*co;
+   if((localU/(r*.94))**2+(localV/(r*.74))**2>1)continue;
+   if(centres.some(p=>Math.abs(x-p[0])<.63&&Math.abs(y-p[1])<.7&&distance([x,y],p)<.87))continue;
+   const width=.16+rand()*.25,depth=.17+rand()*.29;
+   const center=xy(localU,localV),vertices=[[-width,-depth],[width,-depth],[width,depth],[-width,depth]];
+   const theta=Math.atan2(uy,ux),ct=Math.cos(theta),st=Math.sin(theta);
+   const polygon=vertices.map(([xx,yy])=>point(center[0]+xx*ct-yy*st,center[1]+xx*st+yy*ct));
+   if(!clear(polygon))continue;
+   centres.push(center);
+   houses.push({polygon,kind:'parcelle-villageoise'});
   }
-  const plan={roads,houses};townCache.set(town.id,plan);return plan;
+  const result={roads,houses,status:'voirie et bâti procéduraux alignés'};
+  townCache.set(id,result);
+  if(townCache.size>MAX_TOWN_CACHE)townCache.delete(townCache.keys().next().value);
+  return result;
  }
  return {VERSION,SEED,inside,isLand,height,biome,makeWorld,townPlan,localTile,cityTile,segmentDistance,segmentOnLand,pathOnLand,routeOnLand};
 });

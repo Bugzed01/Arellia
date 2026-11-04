@@ -76,7 +76,7 @@ function fakeDOM(search){
  els.get('maps-canvas').getContext=()=>canvasCtx;
  const cats=['all','capitale','metropole','nature','bourg','ville-satellite','quartier','monument','pont'];
  const styles=['game','plan','terrain','night'];
- const layers=['details','roads','rail','water','places','labels','metro','metroRail','urban','canals','zones','transit','relief','lowlands'];
+ const layers=['details','shading','roads','rail','water','places','labels','metro','metroRail','urban','canals','zones','transit','relief','lowlands'];
  const controls={
   '[data-cat]':cats.map(cat=>{const e=new El('button');e.dataset.cat=cat;return e}),
   '[data-style]':styles.map(style=>{const e=new El('button');e.dataset.style=style;return e}),
