@@ -7,7 +7,7 @@
  root.AreliaWorld=api;
 })(typeof window==='undefined'?globalThis:window,function(){
  'use strict';
- const VERSION='1.10.0',SEED=20261103;
+ const VERSION='1.11.0',SEED=20261103;
  const round=n=>Math.round(n*1000)/1000;
  const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
  function rng(n){let seed=n>>>0;return ()=>{seed=(1664525*seed+1013904223)>>>0;return seed/4294967296}}
@@ -588,16 +588,18 @@
   }
   // Rue impériale et voies secondaires naissent sur des carrefours identiques.
   const rMain=r*.85;
-  road([[-rMain,0],[-r*.56,0],[0,0],[r*.54,0],[rMain,0]],'principale');
-  road([[0,-r*.62],[0,0],[0,r*.62]],'principale');
+  const uGrid=[-.52,-.26,0,.26,.52],vGrid=[-.36,-.2,0,.2,.36];
+  // Chaque rue qui atteint la rue principale ou un carrefour emploie
+  // strictement les mêmes sommets arrondis : pas d'intersections fantômes.
+  road([[-rMain,0],...uGrid.map(u=>[u*r,0]),[rMain,0]],'principale');
+  road([[0,-r*.62],...vGrid.map(v=>[0,v*r]),[0,r*.62]],'principale');
   for(const u of [-.52,-.26,.26,.52]){
    for(const side of [-1,1]){
-    road([[u*r,0],[u*r,side*r*.19],[u*r+.12*r*Math.sin(u*7),side*r*.42]],'locale');
+    road([[u*r,0],[u*r,side*r*.2],[u*r,side*r*.36]],'locale');
    }
   }
   for(const v of [-.36,-.2,.2,.36]){
-   // Deux traverses ancrées sur les voies perpendiculaires existantes.
-   road([[-r*.52,v*r],[-r*.26,v*r],[0,v*r],[r*.26,v*r],[r*.52,v*r]],'rue');
+   road(uGrid.map(u=>[u*r,v*r]),'rue');
   }
   // Construction par parcelles autour d'une voie, plutôt que poussière aléatoire.
   const count=town.kind==='centre local'?260:town.kind==='bourg'?150:75;

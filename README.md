@@ -240,3 +240,13 @@ Les détails ne doivent pas être pris pour des données cadastrales ni pour un 
 La génération des affluents est désormais contrainte par la géographie terrestre du référentiel : **les segments qui traverseraient une surface d'eau sont écartés**, notamment autour du lac d'Orélys. Chaque affluent débouche sur un sommet attesté de son fleuve de rattachement. Les rives sont davantage lisibles grâce à une bande de vallée végétale, affichée selon le zoom.
 
 **75 sites naturels provisoires** ont été ajoutés, classés en cinq familles (15 belvédères, 15 reliefs montagneux, 15 clairières, 15 dunes et 15 vallons). Leur position est calculée selon le relief, la couverture des sols et l'éloignement des grandes villes ; ils sont accessibles via la recherche et le filtre Nature. Ils ne représentent pas des lieux canoniques de l'univers et ne modifient ni la superficie, ni la population, ni l'organisation institutionnelle d'Arélia.
+
+## Arélia Maps 1.11 — routage porte-à-porte, villes et réseau national
+
+Les rues des **790 localités** utilisent désormais des intersections à sommets strictement partagés avec la rue principale. Le nouveau module **`arelia-urban-routing.js`** construit à la demande le graphe routier d'un quartier, d'une ville ou d'un bourg sans charger toutes les rues du pays en une fois.
+
+Le moteur assemble une portion urbaine de départ, les voies du graphe interurbain, et la portion urbaine d'arrivée. Les sélecteurs de départ et de destination couvrent les grandes villes, les localités, les quartiers, gares et monuments figurant dans les dix plans urbains. Le plan de Vésone rassemble aussi les axes de sa région métropolitaine et ses villes satellites. Les routes passant à travers un croisement non qualifié ne sont **pas** connectées automatiquement. Les courtes voies de raccordement générées sont des **propositions** contrôlées contre les côtes et les canaux ; elles peuvent être révélées dans le calque « Voir les raccordements provisoires ».
+
+La distance indiquée ne compte que les lignes du graphe représenté. Les distances entre un lieu et sa voie la plus proche figurent en traits pointillés et sont **exclues** du total routier. Certaines composantes restent déconnectées si aucun passage terrestre ou ouvrage qualifié ne peut être établi ; aucune garantie de franchissement, de circulation ou de temps de trajet. Le code est testé automatiquement dans `src/maps/urban_route_validate.cjs` (790 villages, les dix villes, accessibilité de leurs points d'intérêt et itinéraires interéchelles).
+
+Cette cartographie reste une proposition fictive, pas une navigation réelle ; elle conserve la population (100 millions), la superficie (1 million km²) et le régime d'Empire constitutionnel de l'univers.
