@@ -115,6 +115,16 @@ async function scenario(query){
  if(query==='?vue=vesone')assert.ok(ui.wrap.classList.contains('maps-city-mode'));
  if(query==='?vue=metropole')assert.ok(ui.wrap.classList.contains('maps-metro-mode'));
  if(!query){
+   assert.equal(typeof ui.els.get('maps-audit-open').onclick,'function');
+   ui.els.get('maps-audit-open').onclick();
+   const report=ui.els.get('maps-detail').children.map(x=>x?.textContent||'').join(' ');
+   assert.ok(report.includes('Franchissements à qualifier'),'Rapport d’audit non affiché');
+   const anomalyPanel=ui.els.get('maps-detail').children.find(x=>x?.className==='maps-audit-list');
+   assert.ok(anomalyPanel?.children?.length>3,'Liste des anomalies non navigable');
+   assert.equal(typeof anomalyPanel.children[1].onclick,'function');
+   anomalyPanel.children[1].onclick();
+   await setTimeoutReal(20);
+   assert.deepEqual(ui.errors,[],'Erreur au survol des anomalies');
    ui.els.get('maps-route').onclick();
    await setTimeoutReal(100);
    assert.deepEqual(ui.errors,[],'Erreur de parcours national : '+ui.errors.join(' ; '));

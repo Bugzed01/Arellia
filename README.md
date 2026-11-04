@@ -188,3 +188,5 @@ Le graphe national ne connecte plus les routes dont les segments se croisent san
 Un diagnostic des voies d'eau, de la côte et du lac Orélys répertorie les franchissements candidats et les portions de tracés problématiques. Le bouton **Ouvrages ?** et le calque **Franchissements et tracés à vérifier** permettent d'explorer ces informations. L'indication sur un itinéraire est une détection géométrique et non une validation d'ouvrage.
 
 Les contrôles sont reproductibles via `src/maps/national_route_validate.cjs` et `src/maps/geo_audit_validate.cjs`. Aucun point de franchissement n'est réputé réel, praticable ou canonique sans vérification ultérieure.
+
+Le panneau d'audit propose également une **liste de points à examiner** (lac, côte et ouvrages potentiels), classés par type : sélectionner une ligne recentre directement la carte sur les coordonnées du problème. Les tests de démarrage simulent l'ouverture du panneau et le recentrage sur une anomalie.

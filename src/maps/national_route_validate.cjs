@@ -11,6 +11,8 @@ const town=world.settlements;
 assert.ok(graph.count.nodes>1000&&graph.count.edges>1000,'Graphe national trop simple');
 assert.equal(Object.keys(graph.stops).length,major.length+town.length);
 assert.ok(graph.count.crossings>20,'Raccordements entre voies non calculés');
+assert.ok(graph.count.unqualifiedCrossings>100,'Aucun croisement sans qualification identifié');
+assert.ok(graph.uncertainCrossings.length>0,'Inventaire des croisements absents');
 assert.ok(graph.count.components>=1);
 let tested=0,missing=[];
 for(let i=0;i<major.length;i++)for(let j=0;j<major.length;j++){

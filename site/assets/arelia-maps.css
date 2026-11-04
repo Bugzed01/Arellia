@@ -83,3 +83,9 @@
 .maps-audit-button:hover,.maps-audit-button:focus-visible{border-color:#ae8049;background:#f6e8cf}
 .maps-route-audit{font-size:12px;font-weight:750;color:#91652e;background:#faf3e7;padding:9px 10px;border-radius:7px}
 @media(max-width:700px){.maps-audit-button{padding:7px 6px;font-size:10px}}
+
+/* V1.4 — parcours visuel des problèmes géométriques */
+.maps-audit-list{display:grid;gap:6px;max-height:250px;overflow-y:auto;margin-top:10px}
+.maps-audit-list>p{font-weight:750;font-size:11px;color:#65736b}
+.maps-audit-item{display:block;width:100%;text-align:left;background:#f7f4ed;border:1px solid #e0d4bf;color:#4a5454;border-radius:7px;padding:8px 9px;font-size:11px;line-height:1.35;cursor:pointer}
+.maps-audit-item:hover,.maps-audit-item:focus-visible{background:#f4e8d2;border-color:#b99769}

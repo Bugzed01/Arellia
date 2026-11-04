@@ -226,7 +226,21 @@
     :'Les croisements de routes sans sommet de raccordement sont désormais considérés comme non reliés.';
    const legend=document.createElement('p');
    legend.textContent='Cercles orange ou bleus : ponts potentiels. Croix rouges : conflits de tracé. Les symboles ne prouvent pas l’existence d’ouvrages.';
-   detail.append(lead,title,one,two,three,legend);schedule();
+   const anomalies=[
+     ...data.lakeConflicts.slice(0,10).map(a=>({...a,label:'Lac Orélys'})),
+     ...data.coastalConflicts.slice(0,10).map(a=>({...a,label:'Hors terre'})),
+     ...data.bridges.filter(b=>b.mode==='route').slice(0,8).map(a=>({...a,label:'Franchissement fluvial'}))
+   ];
+   const list=document.createElement('div');list.className='maps-audit-list';
+   const subtitle=document.createElement('p');subtitle.textContent='Points à examiner (sélection indicative) :';
+   list.append(subtitle);
+   for(const issue of anomalies){
+     const button=document.createElement('button');button.type='button';button.className='maps-audit-item';
+     button.textContent=issue.label+' · '+issue.lineId+' · XY '+Math.round(issue.point[0])+', '+Math.round(issue.point[1]);
+     button.onclick=()=>{state.layers.infrastructure=true;focus(issue.point[0],issue.point[1],15);detail.classList.add('has-detail')};
+     list.append(button);
+   }
+   detail.append(lead,title,one,two,three,legend,list);schedule();
  }
 
  function drawNationalSettlements(){
