@@ -1,4 +1,4 @@
-/* Arélia Maps 1.11 — routage local et porte-à-porte hiérarchique.
+/* Arélia Maps 1.12 — routage local et porte-à-porte hiérarchique.
  * Aucune intersection implicite entre lignes qui se croisent sans sommet.
  * Les raccordements nouveaux sont explicites, contrôlés et provisoires.
  * Repère local fictif XY ; aucune indication de circulation ou de temps.
@@ -74,56 +74,24 @@
   }
   return best;
  }
- function addLinks(lines,city,geo){
-  const primary=lines.filter(q=>q.kind==='avenues'||q.kind==='expressways');
-  const primarySeg=makeSegments(primary);
-  const provisional=[],rejected=[],perRoute=new Set();
-  // Raccordements limités aux extrémités des rues existantes ; les
-  // croisements à niveau ou les ponts ne sont jamais présumés.
-  for(const line of lines){
-   if(line.kind!=='streets'&&line.kind!=='lanes')continue;
-   const ends=[line.points[0],line.points[line.points.length-1]];
-   for(let i=0;i<ends.length;i++){
-    const a=ends[i],hit=nearestSegment(a,primarySeg,5.5);
-    if(!hit||hit.distance<.006)continue;
-    if(!connectorClear(a,hit.point,city,geo)){
-     rejected.push({roadId:line.id,end:i,reason:'eau, côte ou territoire protégé'});
-     continue;
-    }
-    const id='raccord-'+line.id+'-'+i;
-    provisional.push({id,kind:'raccordement',points:[a,hit.point],provisional:true,attachedTo:hit.segment.roadId});
-    perRoute.add(line.id);
-   }
-  }
-  // Porte d'accès urbaine vers l'étape nationale, sans liaison invisible.
-  const cityCenter=city.center||[city.meta?.center?.[0],city.meta?.center?.[1]];
-  if(coordValid(cityCenter)){
-   const center=xy(cityCenter),hit=nearestSegment(center,primarySeg.length?primarySeg:makeSegments(lines),9);
-   if(hit&&hit.distance>=.006){
-    if(connectorClear(center,hit.point,city,geo))
-     provisional.push({id:'raccord-centre-'+(city.id||city.meta?.id||'vesone'),kind:'acces',points:[center,hit.point],provisional:true});
-    else rejected.push({roadId:'centre',reason:'centre non raccordable sans franchissement inventé'});
-   }
-  }
-  return {lines:[...lines,...provisional],provisional,rejected};
- }
- function buildLocal(city,geo){
-  if(!city)throw new TypeError('Ville manquante');
-  const sources=lineList(city),linked=addLinks(sources,city,geo),segments=makeSegments(linked.lines);
-  const cells=new Map();
+
+ // Construire d'abord la topologie certifiée par sommets communs.
+ // Un croisement purement graphique ne devient jamais une jonction.
+ function graphFromLines(lines,city){
+  const segments=makeSegments(lines),cells=new Map();
   const bucket=(x,y)=>Math.floor(x/CELL)+','+Math.floor(y/CELL);
   for(let i=0;i<segments.length;i++){
-   const s=segments[i],l=Math.floor(Math.min(s.a[0],s.b[0])/CELL),rr=Math.floor(Math.max(s.a[0],s.b[0])/CELL),
-    t=Math.floor(Math.min(s.a[1],s.b[1])/CELL),bb=Math.floor(Math.max(s.a[1],s.b[1])/CELL);
+   const s=segments[i],l=Math.floor(Math.min(s.a[0],s.b[0])/CELL),
+    rr=Math.floor(Math.max(s.a[0],s.b[0])/CELL),
+    t=Math.floor(Math.min(s.a[1],s.b[1])/CELL),
+    bb=Math.floor(Math.max(s.a[1],s.b[1])/CELL);
    for(let x=l;x<=rr;x++)for(let y=t;y<=bb;y++){
     const id=x+','+y;if(!cells.has(id))cells.set(id,[]);
     cells.get(id).push(i);
    }
   }
-  // Une extrémité posée sur l'intérieur d'un segment le coupe en deux.
-  // Deux segments qui se croisent sans extrémité commune ne le font PAS.
   const vertices=new Map();
-  for(const line of linked.lines)for(const p of line.points)vertices.set(key(p),p);
+  for(const line of lines)for(const p of line.points)vertices.set(key(p),p);
   for(const p of vertices.values())for(const i of cells.get(bucket(p[0],p[1]))||[]){
    const s=segments[i],hit=projection(p,s.a,s.b);
    if(hit.distance>.0018||hit.t<.00001||hit.t>1-.00001)continue;
@@ -160,11 +128,102 @@
     if(component[a.to]<0){component[a.to]=components;queue.push(a.to);}
    components++;
   }
-  const center=city.center||(city.meta?.center)||null;
-  const count={roads:sources.length,proposedConnectors:linked.provisional.length,rejectedConnectors:linked.rejected.length,
-   nodes:nodes.length,edges:edges.length,components};
-  return {cityId:city.id||city.meta?.id||'vesone',center:center?xy(center):null,nodes,adj,edges,component:Array.from(component),
-   count,rejected:linked.rejected,connectors:linked.provisional};
+  return {nodes,adj,edges,component:Array.from(component),components,nodeIndex};
+ }
+ function addLinks(lines,city,geo,base){
+  // Générer des jonctions candidates entre composantes réellement séparées ;
+  // seul un ensemble couvrant sans redondance est retenu. Ces jonctions
+  // restent PROPOSÉES, jamais qualifiées comme ponts ou échangeurs existants.
+  const MAX_GAP=6.25,seg=makeSegments(lines),index=new Map(),ends=new Map();
+  const bucket=(x,y)=>Math.floor(x/CELL)+','+Math.floor(y/CELL);
+  for(let id=0;id<seg.length;id++){
+   const s=seg[id],l=Math.floor(Math.min(s.a[0],s.b[0])/CELL),
+    rr=Math.floor(Math.max(s.a[0],s.b[0])/CELL),
+    t=Math.floor(Math.min(s.a[1],s.b[1])/CELL),
+    bb=Math.floor(Math.max(s.a[1],s.b[1])/CELL);
+   for(let x=l;x<=rr;x++)for(let y=t;y<=bb;y++){
+    const k=x+','+y;if(!index.has(k))index.set(k,[]);
+    index.get(k).push(id);
+   }
+  }
+  const at=p=>{const id=base.nodeIndex.get(key(p));return id===undefined?-1:base.component[id]};
+  for(const line of lines)for(const p of [line.points[0],line.points.at(-1)]){
+   const sourceComponent=at(p);if(sourceComponent<0)continue;
+   const k=key(p);if(!ends.has(k))ends.set(k,{point:p,component:sourceComponent,lineId:line.id});
+  }
+  const candidates=[],rejected=[];
+  let tested=0;
+  for(const item of ends.values()){
+   const p=item.point,nearby=new Set();
+   for(let x=Math.floor((p[0]-MAX_GAP)/CELL);x<=Math.floor((p[0]+MAX_GAP)/CELL);x++)
+    for(let y=Math.floor((p[1]-MAX_GAP)/CELL);y<=Math.floor((p[1]+MAX_GAP)/CELL);y++)
+     for(const id of index.get(x+','+y)||[])nearby.add(id);
+   const closestByComponent=new Map();
+   for(const id of nearby){
+    const s=seg[id],targetComponent=at(s.a);
+    if(targetComponent<0||targetComponent===item.component)continue;
+    const hit=projection(p,s.a,s.b);
+    if(hit.distance<.008||hit.distance>MAX_GAP)continue;
+    const old=closestByComponent.get(targetComponent);
+    if(!old||hit.distance<old.length)
+      closestByComponent.set(targetComponent,{source:item.component,target:targetComponent,
+       point:p,foot:hit.point,length:hit.distance,roadId:item.lineId,attachedTo:s.roadId});
+   }
+   // Limiter les contrôles géométriques aux trois meilleurs candidats
+   // d'une extrémité ; les distances restent des unités XY fictives.
+   const selections=[...closestByComponent.values()].sort((a,b)=>a.length-b.length).slice(0,3);
+   for(const c of selections){
+    tested++;
+    if(!connectorClear(c.point,c.foot,city,geo)){
+     rejected.push({roadId:c.roadId,attachedTo:c.attachedTo,
+      reason:'eau, littoral ou limite urbaine',length:r(c.length)});
+    }else candidates.push(c);
+   }
+  }
+  candidates.sort((a,b)=>a.length-b.length||a.roadId.localeCompare(b.roadId));
+  const parent=Array.from({length:base.components},(_,i)=>i),size=parent.map(()=>1);
+  const find=i=>{while(parent[i]!==i){parent[i]=parent[parent[i]];i=parent[i];}return i;};
+  function union(a,b){a=find(a);b=find(b);if(a===b)return false;
+   if(size[a]<size[b])[a,b]=[b,a];
+   parent[b]=a;size[a]+=size[b];return true;
+  }
+  const chosen=[];
+  for(const c of candidates){
+   if(!union(c.source,c.target))continue;
+   chosen.push({id:'raccord-'+chosen.length,kind:'raccordement',
+    points:[c.point,c.foot],provisional:true,
+    attachedTo:c.attachedTo,sourceRoad:c.roadId,length:r(c.length),
+    status:'Proposition non canonique : liaison terrestre à qualifier'});
+  }
+  const cityCenter=city.center||city.meta?.center;
+  if(coordValid(cityCenter)){
+   const center=xy(cityCenter),nearest=nearestSegment(center,makeSegments([...lines,...chosen]),9);
+   if(nearest&&nearest.distance>=.006){
+    if(connectorClear(center,nearest.point,city,geo))
+     chosen.push({id:'raccord-centre-'+(city.id||city.meta?.id||'ville'),
+      kind:'acces',points:[center,nearest.point],provisional:true,
+      length:r(nearest.distance),status:'Accès au centre provisoire'});
+    else rejected.push({roadId:'centre',reason:'centre inaccessible sans franchissement qualifié'});
+   }
+  }
+  return {lines:[...lines,...chosen],provisional:chosen,rejected,
+   candidateCount:candidates.length,tested,baseComponents:base.components,
+   componentsAfterSpanning:new Set(parent.map((_,i)=>find(i))).size};
+ }
+ function buildLocal(city,geo){
+  if(!city)throw new TypeError('Ville manquante');
+  const sources=lineList(city),base=graphFromLines(sources,city);
+  const linked=addLinks(sources,city,geo,base);
+  const final=graphFromLines(linked.lines,city);
+  const center=city.center||city.meta?.center||null;
+  const count={roads:sources.length,proposedConnectors:linked.provisional.length,
+   rejectedConnectors:linked.rejected.length,
+   candidateConnectors:linked.candidateCount,baseComponents:base.components,
+   nodes:final.nodes.length,edges:final.edges.length,components:final.components};
+  return {cityId:city.id||city.meta?.id||'vesone',
+   center:center?xy(center):null,nodes:final.nodes,adj:final.adj,edges:final.edges,
+   component:final.component,count,rejected:linked.rejected,
+   connectors:linked.provisional};
  }
  class Heap{
   constructor(){this.a=[]}
