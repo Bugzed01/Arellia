@@ -122,6 +122,15 @@ async function scenario(query){
    const anomalyPanel=ui.els.get('maps-detail').children.find(x=>x?.className==='maps-audit-list');
    assert.ok(anomalyPanel?.children?.length>3,'Liste des anomalies non navigable');
    assert.equal(typeof anomalyPanel.children[1].onclick,'function');
+   const pageControl=anomalyPanel.children.at(-1);
+   const next=pageControl.children.find(x=>x.className==='maps-audit-next');
+   assert.ok(next&&!next.disabled,'Les ouvrages doivent être paginés');
+   const firstText=anomalyPanel.children[1].textContent;
+   next.onclick();
+   assert.notEqual(anomalyPanel.children[1].textContent,firstText,'Navigation des ouvrages inactive');
+   const previous=anomalyPanel.children.at(-1).children.find(x=>x.className==='maps-audit-previous');
+   previous.onclick();
+   assert.equal(anomalyPanel.children[1].textContent,firstText,'Retour à la page initiale impossible');
    anomalyPanel.children[1].onclick();
    await setTimeoutReal(20);
    assert.deepEqual(ui.errors,[],'Erreur au survol des anomalies');

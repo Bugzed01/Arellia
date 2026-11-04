@@ -190,3 +190,15 @@ Un diagnostic des voies d'eau, de la côte et du lac Orélys répertorie les fra
 Les contrôles sont reproductibles via `src/maps/national_route_validate.cjs` et `src/maps/geo_audit_validate.cjs`. Aucun point de franchissement n'est réputé réel, praticable ou canonique sans vérification ultérieure.
 
 Le panneau d'audit propose également une **liste de points à examiner** (lac, côte et ouvrages potentiels), classés par type : sélectionner une ligne recentre directement la carte sur les coordonnées du problème. Les tests de démarrage simulent l'ouverture du panneau et le recentrage sur une anomalie.
+
+## Arélia Maps 1.5 — voies terrestres corrigées
+
+La route nationale **A5** contourne désormais le nord du **lac Orélys**. Le tracé est défini dans `src/maps/generate.py` et synchronisé dans `site/assets/arelia-map-data.json`, ce qui rend la reconstruction de la carte cohérente.
+
+Le générateur `site/assets/arelia-world.js` conserve les voies déjà terrestres et applique un **contournement déterministe** en cas de traversée d'un lac ou d'une portion maritime. Il utilise une recherche sur un maillage terrestre et simplifie ensuite le parcours sans couper les surfaces d'eau. Le dernier contrôle a corrigé **une liaison régionale et 104 dessertes rurales**, sans détour non résolu. Les 790 localités restent reliées par le réseau représenté.
+
+Les validations `src/maps/world_validate.cjs` et `src/maps/geo_audit_validate.cjs` vérifient désormais chaque ligne terrestre et interdisent les régressions détectées sur le lac ou hors terre. L'audit géométrique n'a trouvé **aucune portion sur le lac ni hors terre** après correction. Il reste **350 croisements routiers** et **quatre ferroviaires** avec des cours d'eau à qualifier, sans que cela implique nécessairement autant de ponts.
+
+La commande **Ouvrages ?** affiche le nombre de détours réalisés et une file de vérification paginée (16 éléments par page), avec recentrage sur les coordonnées des croisements.
+
+**Limites :** les lignes sont fictives et non cadastrales. Un tracé terrestre valide n'établit pas un accès public, un franchissement constructible, un gabarit de route, une vitesse de circulation ni un ouvrage existant. Les croisements de fleuves restent des points non qualifiés.
