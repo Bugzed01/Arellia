@@ -17,7 +17,7 @@ const ctx=new Proxy({},{
   return obj[key];
  },set(obj,key,value){obj[key]=value;return true}
 });
-let trees=0,parking=0,courts=0,yards=0,roofs=0;
+let trees=0,parking=0,blocks=0,courts=0,yards=0,roofs=0;
 assert.equal(Object.keys(cities).length,10);
 for(const city of Object.values(cities)){
  const scene=urbanScene.create(city,geo);
@@ -27,6 +27,7 @@ for(const city of Object.values(cities)){
  assert.equal(scene.status,'détails urbains provisoires non canoniques');
  assert.ok(scene.trees.length>=70,'Alignement d’arbres absent : '+city.id);
  assert.ok(scene.parking.length>=12,'Stationnement insuffisant : '+city.id);
+ assert.ok(scene.blocks.length>=100,'Trame parcellaire insuffisante : '+city.id);
  assert.ok(scene.courts.length>=3,'Équipement sportif absent : '+city.id);
  for(const tree of scene.trees){
   assert.ok(worldAPI.isLand([tree.x,tree.y],geo),'Arbre dans l’eau : '+city.id);
@@ -38,6 +39,10 @@ for(const city of Object.values(cities)){
    assert.ok(worldAPI.inside(p,city.outline),'Parking hors de ville : '+city.id);
   }
  }
+ for(const block of scene.blocks){
+  assert.ok(block.polygon.every(p=>worldAPI.isLand(p,geo)&&worldAPI.inside(p,city.outline)),
+   'Parcelle hors terre ou hors ville : '+city.id);
+ }
  for(const court of scene.courts){
   assert.ok((city.parks||[]).some(park=>court.polygon.every(p=>worldAPI.inside(p,park.polygon))),
    'Équipement sportif hors parc : '+city.id);
@@ -48,15 +53,16 @@ for(const city of Object.values(cities)){
  assert.ok(first?.polygon?.length>=3,'Bâtiment absent : '+city.id);
  urbanScene.drawBuilding(ctx,first,false,45);
  urbanScene.drawBuilding(ctx,first,true,20);
- trees+=scene.trees.length;parking+=scene.parking.length;courts+=scene.courts.length;
+ trees+=scene.trees.length;parking+=scene.parking.length;blocks+=scene.blocks.length;courts+=scene.courts.length;
  yards+=scene.yards.length;roofs+=(city.buildings||[]).length;
 }
 assert.ok(trees>=2500,'Masse végétale urbaine trop faible');
+assert.ok(blocks>=1500,'Trame parcellaire insuffisante sur les dix villes');
 assert.ok(parking>=300,'Stationnements urbains trop peu nombreux');
 assert.ok(courts>=50,'Parcs urbains sous-équipés');
 assert.ok(yards>=3,'Sites d’activité portuaire absents');
 assert.ok(roofs>=3500,'Empreintes de bâtiments existants manquantes');
 assert.ok(operations.filter(q=>q==='fill').length>=500,'Le rendu ne dessine pas les objets');
-console.log('Arélia Maps 1.15 : '+trees+' arbres en voirie, '+parking+' aires de stationnement, '+
+console.log('Arélia Maps 1.15 : '+blocks+' parcelles, '+trees+' arbres en voirie, '+parking+' aires de stationnement, '+
  courts+' équipements de parc, '+yards+' cours portuaires et '+roofs+' bâtiments de référence.');
 console.log('Reproductibilité, limites des villes, présence des parcelles sur terre et API de rendu : OK.');

@@ -33,6 +33,7 @@ jobs:
           node src/maps/national_route_validate.cjs
           node src/maps/urban_route_validate.cjs
           node src/maps/road_detail_validate.cjs
+          node src/maps/urban_scene_validate.cjs
           node src/maps/road_gaps_validate.cjs
           node src/maps/geo_audit_validate.cjs
           node src/maps/measure_validate.cjs
