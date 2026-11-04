@@ -12,6 +12,7 @@ const routing=require('../../site/assets/arelia-routing.js');
 const nationalRouting=require('../../site/assets/arelia-national-routing.js');
 const urbanRouting=require('../../site/assets/arelia-urban-routing.js');
 const roadGaps=require('../../site/assets/arelia-road-gaps.js');
+const roadDetail=require('../../site/assets/arelia-road-detail.js');
 const display=require('../../site/assets/arelia-display.js');
 const world=require('../../site/assets/arelia-world.js');
 const spatial=require('../../site/assets/arelia-spatial.js');
@@ -79,7 +80,7 @@ function fakeDOM(search){
  els.get('maps-canvas').getContext=()=>canvasCtx;
  const cats=['all','capitale','metropole','nature','bourg','ville-satellite','quartier','monument','pont'];
  const styles=['game','plan','terrain','night'];
- const layers=['proposed','gaps','details','shading','roads','rail','water','places','labels','metro','metroRail','urban','canals','zones','transit','relief','lowlands'];
+ const layers=['proposed','gaps','junctions','details','shading','roads','rail','water','places','labels','metro','metroRail','urban','canals','zones','transit','relief','lowlands'];
  const controls={
   '[data-cat]':cats.map(cat=>{const e=new El('button');e.dataset.cat=cat;return e}),
   '[data-style]':styles.map(style=>{const e=new El('button');e.dataset.style=style;return e}),
@@ -94,7 +95,7 @@ function fakeDOM(search){
  class FakeImage{constructor(){this.complete=true;this.naturalWidth=1500;this.naturalHeight=1400;this.src=''}addEventListener(){}}
  class FakeObserver{constructor(){}observe(){}disconnect(){}}
  const errors=[];
- const fakeWindow={devicePixelRatio:1,innerWidth:1280,location:{search},AreliaRouting:routing,AreliaDisplay:display,AreliaWorld:world,AreliaSpatial:spatial,AreliaDetail:cartographicDetail,AreliaNationalRouting:nationalRouting,AreliaUrbanRouting:urbanRouting,AreliaRoadGaps:roadGaps,AreliaGeoAudit:audit,AreliaMeasure:measure,addEventListener:()=>{}};
+ const fakeWindow={devicePixelRatio:1,innerWidth:1280,location:{search},AreliaRouting:routing,AreliaDisplay:display,AreliaWorld:world,AreliaSpatial:spatial,AreliaDetail:cartographicDetail,AreliaNationalRouting:nationalRouting,AreliaUrbanRouting:urbanRouting,AreliaRoadGaps:roadGaps,AreliaRoadDetail:roadDetail,AreliaGeoAudit:audit,AreliaMeasure:measure,addEventListener:()=>{}};
  const sandbox={
   document,window:fakeWindow,Image:FakeImage,MutationObserver:FakeObserver,ResizeObserver:FakeObserver,
   fetch:async url=>({ok:true,json:async()=>structuredClone(url.includes('vesone-city')?vesone:url.includes('arelia-other-cities')?others:geo)}),
