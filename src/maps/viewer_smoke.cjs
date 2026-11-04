@@ -12,6 +12,7 @@ const routing=require('../../site/assets/arelia-routing.js');
 const nationalRouting=require('../../site/assets/arelia-national-routing.js');
 const display=require('../../site/assets/arelia-display.js');
 const world=require('../../site/assets/arelia-world.js');
+const spatial=require('../../site/assets/arelia-spatial.js');
 const cartographicDetail=require('../../site/assets/arelia-detail.js');
 const audit=require('../../site/assets/arelia-geo-audit.js');
 const measure=require('../../site/assets/arelia-measure.js');
@@ -91,7 +92,7 @@ function fakeDOM(search){
  class FakeImage{constructor(){this.complete=true;this.naturalWidth=1500;this.naturalHeight=1400;this.src=''}addEventListener(){}}
  class FakeObserver{constructor(){}observe(){}disconnect(){}}
  const errors=[];
- const fakeWindow={devicePixelRatio:1,innerWidth:1280,location:{search},AreliaRouting:routing,AreliaDisplay:display,AreliaWorld:world,AreliaDetail:cartographicDetail,AreliaNationalRouting:nationalRouting,AreliaGeoAudit:audit,AreliaMeasure:measure,addEventListener:()=>{}};
+ const fakeWindow={devicePixelRatio:1,innerWidth:1280,location:{search},AreliaRouting:routing,AreliaDisplay:display,AreliaWorld:world,AreliaSpatial:spatial,AreliaDetail:cartographicDetail,AreliaNationalRouting:nationalRouting,AreliaGeoAudit:audit,AreliaMeasure:measure,addEventListener:()=>{}};
  const sandbox={
   document,window:fakeWindow,Image:FakeImage,MutationObserver:FakeObserver,ResizeObserver:FakeObserver,
   fetch:async url=>({ok:true,json:async()=>structuredClone(url.includes('vesone-city')?vesone:url.includes('arelia-other-cities')?others:geo)}),

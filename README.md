@@ -226,3 +226,11 @@ Dans les villages, les rues partagent maintenant des carrefours identiques et le
 Le rendu Atlas et Relief peut ajouter une ombre topographique locale calculée depuis l'indice de hauteur (non métrique), sans API ni téléchargement de tuiles. Le calque *Ombres du relief* peut être désactivé. Les noms des villages apparaissent progressivement avec contrôle des collisions. Toutes les géométries restent fictives, reproductibles et provisoires.
 
 Les six plans urbains procéduraux créés par le moteur national utilisent désormais des **avenues depuis un carrefour central**, des rues secondaires attachées à celles-ci, des rocades interrompues lorsque la côte le demande, et des bâtiments rapprochés des rues. Les empreintes urbaines sont rejetées lorsqu'elles tomberaient sur l'eau. Les trois plans historiques précalculés conservent leur structure et demandent une passe de transformation distincte.
+
+## Arélia Maps 1.9 — continuité paysagère et performances
+
+La grande passe 1.9 ajoute un **index spatial indépendant** (`site/assets/arelia-spatial.js`) des 790 localités, des routes et de l'hydrographie. Les tuiles locales interrogent cet index au lieu de reparcourir tous les tracés de l'île à chaque zoom. Les résultats sont déterministes ; le cache des détails est isolé par monde afin d'éviter des collisions entre jeux de données.
+
+Le rendu Atlas comporte désormais une **ombre topographique nationale** (visible dès la vue d'ensemble), en plus des textures locales d'ombrage à résolution réduite. Le tracé des côtes bénéficie d'une bande sableuse côté terre, les champs ont des haies ou des murets orientés par les parcelles, les cinq grands axes routiers sont plus distincts et reçoivent leurs numéros A1–A5. Les contrôles de zoom, de couches, de recherche et les itinéraires existants sont conservés.
+
+Les détails ne doivent pas être pris pour des données cadastrales ni pour un graphe routier complet : les pistes locales sont toujours illustratives. La surface, la population et les institutions de l'île restent inchangées.

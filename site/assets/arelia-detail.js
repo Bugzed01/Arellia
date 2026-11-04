@@ -1,12 +1,18 @@
 /* Arélia Maps 1.8 — territoire procédural structuré, hors canon.
    Ce module ne copie ni relief ni données ni éléments graphiques de GTA V. */
 (function(root,factory){
- const api=factory(typeof module==='object'&&module.exports?require('./arelia-world.js'):root.AreliaWorld);
+ const api=factory(typeof module==='object'&&module.exports?require('./arelia-world.js'):root.AreliaWorld,
+  typeof module==='object'&&module.exports?require('./arelia-spatial.js'):root.AreliaSpatial);
  if(typeof module==='object'&&module.exports)module.exports=api;
  root.AreliaDetail=api;
-})(typeof window==='undefined'?globalThis:window,function(world){
+})(typeof window==='undefined'?globalThis:window,function(world,spatial){
  'use strict';
- const VERSION='1.8.0',TILE=24,LIMIT=180,cache=new Map();
+ const VERSION='1.9.0',TILE=24,LIMIT=180,caches=new WeakMap(),indexes=new WeakMap();
+ function getIndex(geo,context){
+  const key=context||geo;
+  if(!indexes.has(key))indexes.set(key,spatial.createIndex(geo,context||{}));
+  return indexes.get(key);
+ }
  const round=n=>Math.round(n*1000)/1000;
  const pt=(x,y)=>[round(x),round(y)];
  const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
@@ -55,7 +61,7 @@
  const nearBox=(b,x,y,r)=>b.maxX>=x-r&&b.minX<=x+r&&b.maxY>=y-r&&b.minY<=y+r;
  function densityAt(x,y,geo,context){
   let nearest=Infinity,mainCity=Infinity,nearestRoad=Infinity,road=null,roadPoint=null;
-  for(const town of context?.settlements||[]){
+  for(const town of getIndex(geo,context).townsAt(x,y)){
    if(Math.abs(town.x-x)>78||Math.abs(town.y-y)>78)continue;
    nearest=Math.min(nearest,Math.max(0,len([x,y],[town.x,town.y])-town.radius));
   }
@@ -63,17 +69,12 @@
    if(!['ville','metropole','capitale'].includes(city.category))continue;
    mainCity=Math.min(mainCity,Math.hypot(city.x-x,city.y-y));
   }
-  const roads=[...(geo.roads||[]),...(context?.arterials||[]),...(context?.feeders||[])];
-  for(const r of roads){
-   const pts=r.points||[];
-   for(let k=1;k<pts.length;k++){
-    const a=pts[k-1],b=pts[k];
+  for(const {a,b,road:route} of getIndex(geo,context).roadsAt(x,y)){
     if(!nearBox(bbox(a,b,36),x,y,1))continue;
     const d=world.segmentDistance([x,y],a,b);
-    if(d.distance<nearestRoad){nearestRoad=d.distance;road=r;roadPoint=d.point;}
+    if(d.distance<nearestRoad){nearestRoad=d.distance;road=route;roadPoint=d.point;}
    }
-  }
-  // Pas d'habitat dense arbitraire loin du réseau de déplacement.
+   // Pas d'habitat dense arbitraire loin du réseau de déplacement.
   const townFactor=clamp(1-nearest/17,0,1);
   const roadFactor=clamp(1-nearestRoad/12,0,1);
   const cityFactor=clamp(1-mainCity/80,0,1);
@@ -82,7 +83,8 @@
  }
  function tile(geo,base,i,j,context){
   if(!base)return null;
-  const id=i+','+j;
+  const id=i+','+j,owner=context||geo;
+  let cache=caches.get(owner);if(!cache){cache=new Map();caches.set(owner,cache);}
   if(cache.has(id)){const old=cache.get(id);cache.delete(id);cache.set(id,old);return old;}
   const rand=rng(seedFor(i,j)),ox=i*TILE,oy=j*TILE,kind=base.kind,style=STYLES[kind]||STYLES.prairie;
   const land=p=>inside(p,i,j)&&world.isLand(p,geo);
@@ -90,7 +92,7 @@
   const agricultural=['cultures','prairie','steppe'].includes(kind),woodland=['foret','foret-humide','coniferes'].includes(kind);
   const wet=['marais','foret-humide'].includes(kind),hostile=['glacier','roche'].includes(kind);
   const mid=[ox+12,oy+12],settlement=densityAt(mid[0],mid[1],geo,context);
-  const meadows=[],parcels=[],groves=[],paths=[],ponds=[],structures=[],orchards=[],scrub=[],riparian=[],cliffs=[];
+  const meadows=[],parcels=[],groves=[],paths=[],ponds=[],structures=[],orchards=[],scrub=[],riparian=[],cliffs=[],hedges=[];
   const largeScaleAngle=Math.atan2(world.height(mid[0],mid[1]+5)-world.height(mid[0],mid[1]-5),
    world.height(mid[0]+5,mid[1])-world.height(mid[0]-5,mid[1]))+.5;
   // Des parcelles voisines partagent une orientation locale ; les reliefs restent irréguliers.
@@ -108,6 +110,14 @@
     const polygon=shape(x,y,w,h,a,4,0);
     if(accept(polygon))parcels.push({polygon,tone:rand(),furrows:rand()>.48,center:pt(x,y),angle:a,w,h});
    }
+  }
+  // Haies suivant les limites des parcelles agricoles.
+  if(agricultural)for(const field of parcels){
+   if(field.tone<.52)continue;
+   const a=field.polygon[0],b=field.polygon[1],dist=len(a,b),n=Math.max(1,Math.ceil(dist/.7));
+   const points=[];
+   for(let k=0;k<=n;k++)points.push(pt(a[0]+(b[0]-a[0])*k/n,a[1]+(b[1]-a[1])*k/n));
+   if(onLand(points,geo))hedges.push({points,kind:kind==='steppe'?'muret':'haie'});
   }
   const nTrees=woodland?78:wet?55:kind==='prairie'?25:0;
   for(let k=0;k<nTrees;k++){
@@ -181,11 +191,9 @@
    }
   }
   // Le corridor humide suit uniquement les rivières existantes de l'atlas.
-  const waters=[...(geo.rivers||[]),...(context?.streams||[])];
-  for(const river of waters){
-   if(riparian.length>=50)break;
-   for(let s=1;s<(river.points||[]).length;s++){
-    const a=river.points[s-1],b=river.points[s],span=len(a,b);
+  for(const {a,b} of getIndex(geo,context).riversAt(mid[0],mid[1])){
+    if(riparian.length>=50)break;
+    const span=len(a,b);
     if(!nearBox(bbox(a,b,4),mid[0],mid[1],12)||span<.2)continue;
     const n=Math.min(40,Math.ceil(span/2.6));
     for(let k=0;k<=n&&riparian.length<50;k++){
@@ -196,8 +204,7 @@
      if(accept(polygon))riparian.push({polygon});
     }
    }
-  }
-  if(wet){
+   if(wet){
    for(let k=0;k<8;k++){
     const x=ox+1.2+rand()*21.6,y=oy+1.2+rand()*21.6;
     const polygon=shape(x,y,.35+rand()*.9,.19+rand()*.52,rand()*6,9,.11);
@@ -218,9 +225,9 @@
   }
   const obj={id,i,j,version:VERSION,kind,style,landUse:{
    nearestTownKm:round(settlement.nearest),nearestRoadKm:round(settlement.nearestRoad),slopeIndex:round(settlement.slope)},
-   meadows,parcels,groves,paths,ponds,structures,orchards,scrub,riparian,cliffs,status:'territoire procédural non canonique'};
+   meadows,parcels,groves,paths,ponds,structures,orchards,scrub,riparian,cliffs,hedges,status:'territoire procédural non canonique'};
   cache.set(id,obj);if(cache.size>LIMIT)cache.delete(cache.keys().next().value);
   return obj;
  }
- return {VERSION,TILE,tile,STYLES,lineOnLand:onLand,densityAt};
+ return {VERSION,TILE,tile,STYLES,lineOnLand:onLand,densityAt,spatialIndex:getIndex};
 });
