@@ -1107,7 +1107,7 @@
       ].map(p=>[p.id,p]));
       const answer=router.route(places.get(from),places.get(to));
       state.metroRoute=null;
-      if(!answer){state.route=null;detail.classList.add('has-detail');detail.textContent='Aucun trajet n’a été trouvé sur les axes connectés de l’atlas.';schedule();return;}
+      if(!answer){state.route=null;detail.classList.add('has-detail');detail.textContent='Rupture du réseau : aucun itinéraire continu n’est documenté entre ces lieux. Le calque des raccordements proposés peut aider à examiner la situation, sans supposer de pont ou d’échangeur.';schedule();return;}
       state.route=answer;
       detail.classList.add('has-detail');detail.replaceChildren();
       const title=document.createElement('h2');title.textContent='Itinéraire routier fictif';
@@ -1189,6 +1189,29 @@
   focus(city.center[0],city.center[1],13);
   listItems();renderOtherOverview();schedule();
  }
+ function addNetworkStatus(cityId){
+  const button=document.createElement('button');
+  button.type='button';button.className='maps-detail-zoom';
+  button.textContent='Diagnostiquer le réseau routier';
+  button.onclick=()=>{
+   try{
+    const graph=ensureUrbanRouter().localCity(cityId);
+    if(!graph)return;
+    const output=document.createElement('p');
+    output.className='maps-network-status';
+    output.textContent=graph.count.baseComponents+' composantes initiales, '+
+     graph.count.components+' restantes ; '+graph.count.proposedConnectors+
+     ' raccordements proposés, '+graph.count.rejectedConnectors+
+     ' candidats rejetés (eau, limites ou croisements non attestés).';
+    detail.append(output);button.disabled=true;
+    state.layers.proposed=true;
+    for(const control of document.querySelectorAll('[data-layer]'))
+     if(control.dataset.layer==='proposed')control.checked=true;
+    schedule();
+   }catch(error){console.error(error);}
+  };
+  detail.append(button);
+ }
  function renderOtherOverview(){
   const city=state.secondaryCity;detail.classList.toggle('has-detail',window.innerWidth>700);
   detail.replaceChildren();
@@ -1198,7 +1221,7 @@
   const stat=document.createElement('div');stat.className='maps-route-message';
   stat.textContent=city.buildings.length+' bâtiments schématiques · '+(city.streets.length+city.avenues.length)+' voies · '+city.places.length+' lieux';
   const link=document.createElement('a');link.className='maps-detail-cta';link.href='../wiki/'+city.id+'/';link.textContent='Voir la notice encyclopédique ↗';
-  detail.append(t,h,d,stat,link);
+  detail.append(t,h,d,stat,link);addNetworkStatus(city.id);
  }
  function renderCityOverview(){detail.classList.toggle('has-detail',window.innerWidth>700);detail.replaceChildren();
   const span=document.createElement('span');span.className='maps-detail-attr';span.textContent='CAPITALE IMPÉRIALE';detail.append(span);
@@ -1206,7 +1229,7 @@
   const paragraph=document.createElement('p');paragraph.textContent='Explorez sept quartiers, leurs ponts et leurs monuments. Les rues et les localisations urbaines sont des propositions de conception.';detail.append(paragraph);
   const info=document.createElement('div');info.className='maps-route-message';info.textContent=`${state.city.urban_zones.length} secteurs · ${state.city.stations.length} stations · ${state.city.canals.length} canaux · ${state.city.bridges.length} ponts · ${state.city.places.length} lieux indexés`;detail.append(info);
   const link=document.createElement('a');link.className='maps-detail-cta';link.href='../wiki/vesone/';link.textContent='En savoir plus sur Vésone ↗';detail.append(link);
-  const status=document.createElement('p');status.className='maps-urban-status';status.textContent='Carte fictive, non cadastrale. Navigation par déplacement, zoom et recherche.';detail.append(status);
+  const status=document.createElement('p');status.className='maps-urban-status';status.textContent='Carte fictive, non cadastrale. Navigation par déplacement, zoom et recherche.';detail.append(status);addNetworkStatus('vesone');
  }
  function renderCountryOverview(){detail.classList.remove('has-detail');detail.innerHTML='<div class="maps-detail-idle"><span class="maps-overline">ATLAS IMPÉRIAL</span><h2>Explorer Arélia.</h2><p>Choisissez une ville sur le territoire, ou cliquez sur « Vésone » pour découvrir les rues et les canaux.</p></div>'}
  function setup(){
