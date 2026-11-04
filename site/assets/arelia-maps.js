@@ -92,9 +92,44 @@
    ctx.restore();
  }
 
+ // Texture d'ombrage à grande échelle : relief visible sans attendre un zoom extrême.
+ // Échantillonnage 360 × 336 et cache unique, pour ne pas ralentir le déplacement.
+ let nationalHillshade=null;
+ function getNationalHillshade(){
+  if(nationalHillshade!==null)return nationalHillshade||null;
+  const tex=document.createElement('canvas');
+  if(typeof tex.getContext!=='function'){nationalHillshade=false;return null;}
+  const tw=360,th=336;tex.width=tw;tex.height=th;
+  const painter=tex.getContext('2d');
+  if(!painter||typeof painter.createImageData!=='function'||typeof painter.putImageData!=='function'){nationalHillshade=false;return null;}
+  const image=painter.createImageData(tw,th);
+  const pixels=image.data;if(!pixels){nationalHillshade=false;return null;}
+  const dx=1500/tw,dy=1400/th;
+  for(let y=0;y<th;y++)for(let x=0;x<tw;x++){
+   const wx=(x+.5)*dx,wy=(y+.5)*dy;
+   const dX=worldAPI.height(wx-2,wy)-worldAPI.height(wx+2,wy);
+   const dY=worldAPI.height(wx,wy-2)-worldAPI.height(wx,wy+2);
+   const lighting=dX*.73+dY*.47;
+   const p=(y*tw+x)*4,shadow=lighting<0;
+   pixels[p]=shadow?41:248;
+   pixels[p+1]=shadow?62:247;
+   pixels[p+2]=shadow?60:228;
+   pixels[p+3]=Math.min(126,Math.round(9+Math.abs(lighting)*40));
+  }
+  painter.putImageData(image,0,0);
+  nationalHillshade=tex;return nationalHillshade;
+ }
+ function drawNationalHillshade(){
+  if(!state.layers.shading||(state.style!=='game'&&state.style!=='terrain'))return;
+  const source=getNationalHillshade();if(!source)return;
+  ctx.save();clipLand();ctx.globalAlpha=.88;
+  ctx.drawImage(source,0,0,1500,1400);
+  ctx.restore();
+ }
+
  // Ombres topographiques calculées sur le terrain fictif, sans téléchargements.
  // Le raster est créé seulement pour les tuiles visibles, puis mis en cache.
- const shadeCache=new Map(),SHADE_LIMIT=100,SHADE_SIZE=96;
+ const shadeCache=new Map(),SHADE_LIMIT=110,SHADE_SIZE=48;
  function shadedTile(i,j){
   const key=i+','+j;
   if(shadeCache.has(key)){const old=shadeCache.get(key);shadeCache.delete(key);shadeCache.set(key,old);return old;}
@@ -140,6 +175,10 @@
    ctx.lineWidth=width;ctx.strokeStyle=color;ctx.lineCap='round';ctx.lineJoin='round';ctx.stroke();
   };
   const alpha=ctx.globalAlpha;
+  if(level>=24&&state.layers.details&&tile.hedges)for(const hedge of tile.hedges){
+   ctx.globalAlpha=alpha*(night?.58:.72);
+   stroke(hedge.points,night?'#657769':hedge.kind==='muret'?'#ada286':'#6c9971',hedge.kind==='muret'?.09:.15);
+  }
   for(const m of tile.meadows){
    ctx.globalAlpha=alpha*(night?.17:.23);poly(m.polygon);
    ctx.fillStyle=night?'#73927e':m.tone>.48?style.ground:style.edge;ctx.fill();
@@ -408,10 +447,20 @@
 
  function drawAtlasCoast(){
   if(state.style!=='game')return;
-  const color='#77abb0',pale='#e0e3cb';
+  const level=state.scale/state.baseScale,color='#76a6ab',pale='#e0e3cb';
+  const rings=[state.data.coastline,...(state.data.islands||[])];
+  if(level>=5){
+   // Bande sableuse du côté de la terre, avec clipping du littoral et des îlots.
+   ctx.save();clipLand();
+   for(const ring of rings){
+    ctx.beginPath();ctx.moveTo(ring[0][0],ring[0][1]);
+    for(const p of ring.slice(1))ctx.lineTo(p[0],p[1]);
+    ctx.closePath();ctx.strokeStyle='#ead9af';ctx.lineWidth=2.9;ctx.globalAlpha=.68;ctx.stroke();
+   }
+   ctx.restore();
+  }
   const outline=ring=>{if(ring.length>2)polyline([...ring,ring[0]],pale,5.2);if(ring.length>2)polyline([...ring,ring[0]],color,2.1)};
-  outline(state.data.coastline);
-  for(const island of state.data.islands||[])outline(island);
+  for(const ring of rings)outline(ring);
   if(state.data.lake?.length>2)outline(state.data.lake);
  }
  function markerRoadNodes(){if(!state.data)return;const d=state.data;
@@ -419,7 +468,10 @@
   drawWorldTiles();
   drawAtlasCoast();
   if(state.layers.water){d.rivers.forEach(r=>polyline(r.points,'#ffffffad',r.importance==='majeur'?8:4.5));d.rivers.forEach(r=>polyline(r.points,r.importance==='majeur'?'#3f96af':'#5aadc0',r.importance==='majeur'?5.5:3));polyline(d.lake,'#72b5bb',1.4)}
-  if(state.layers.roads){d.roads.forEach(r=>polyline(r.points,'#ffffffca',5.5));d.roads.forEach(r=>polyline(r.points,'#d4a66c',2.45));}
+  if(state.layers.roads){
+   d.roads.forEach(r=>polyline(r.points,state.style==='night'?'#233e4b':'#fffaf0',state.style==='game'?7:5.5));
+   d.roads.forEach(r=>polyline(r.points,state.style==='night'?'#b9a47b':state.style==='game'?'#daaa73':'#d4a66c',state.style==='game'?3.2:2.45));
+  }
   if(state.layers.rail){d.railways.forEach(r=>polyline(r.points,'#34505c',2.2,[6,4],true));}
   if(state.layers.water&&state.scale>=state.baseScale*4.5&&!state.city){d.capital.canals.forEach(r=>polyline(r.points,'#f4fbfa',8));d.capital.canals.forEach(r=>polyline(r.points,'#3e9eaf',5.2));}
   drawNationalNetworks();
@@ -789,9 +841,9 @@
  function draw(){if(!state.data)return;const [w,h]=getDim();if(!w||!h)return;ctx.setTransform(state.dpr,0,0,state.dpr,0,0);ctx.fillStyle=state.style==='night'?'#0a283b':'#c0d5d9';ctx.fillRect(0,0,w,h);ctx.save();ctx.setTransform(state.dpr*state.scale,0,0,state.dpr*state.scale,state.tx*state.dpr,state.ty*state.dpr);
   const img=state.style==='night'||state.style==='terrain'?terrain:plan;
   if(img.complete&&img.naturalWidth){if(state.style==='night')ctx.filter='brightness(.52) saturate(.65) hue-rotate(20deg)';else if(state.style==='game')ctx.filter='brightness(1.06) saturate(.86) contrast(.97)';ctx.drawImage(img,0,0,1500,1400);ctx.filter='none';}
-  markerRoadNodes();drawRoute();drawMetroRoute();drawMeasure();ctx.restore();
+  drawNationalHillshade();markerRoadNodes();drawRoute();drawMetroRoute();drawMeasure();ctx.restore();
   if(state.layers.labels && state.scale<state.baseScale*7){state.data.labels.forEach(p=>drawLabel(p.x,p.y,p.name,p.kind));}
-  drawVillageLabels();syncMarkers();scaleBar();}
+  drawVillageLabels();drawRoadShields();syncMarkers();scaleBar();}
  function scaleBar(){
   const b=carto.scaleBar(state.scale,state.data.meta.kilometres_per_unit);
   if(!b)return;
@@ -799,6 +851,38 @@
   const level=state.scale/state.baseScale;
   $('maps-zoom-band').textContent=({empire:'Empire',agglomeration:'Agglomération',quartiers:'Quartiers',rues:'Rues'})[carto.band(level)]+' · zoom ×'+Math.round(level*10)/10;
 }
+ // Numérotation des cinq grands axes, avec étiquettes à l'échelle régionale.
+ function drawRoadShields(){
+  const level=state.scale/state.baseScale;
+  if(!state.layers.roads||!state.layers.labels||state.cityMode||level<3||level>24)return;
+  const [w,h]=getDim(),occupied=[];
+  ctx.save();ctx.setTransform(state.dpr,0,0,state.dpr,0,0);
+  ctx.font='800 11px Arial';ctx.textAlign='center';ctx.textBaseline='middle';
+  for(const road of state.data.roads){
+   const segments=[],pts=road.points;let total=0;
+   for(let i=1;i<pts.length;i++){
+    const d=Math.hypot(pts[i][0]-pts[i-1][0],pts[i][1]-pts[i-1][1]);
+    segments.push(d);total+=d;
+   }
+   let remaining=total*.49,anchor=null;
+   for(let i=0;i<segments.length;i++){
+    if(remaining<=segments[i]){
+     const t=segments[i]?remaining/segments[i]:0;
+     anchor=[pts[i][0]*(1-t)+pts[i+1][0]*t,pts[i][1]*(1-t)+pts[i+1][1]*t];break;
+    }
+    remaining-=segments[i];
+   }
+   if(!anchor)continue;
+   const [x,y]=coord(anchor);
+   if(x<20||x>w-20||y<80||y>h-30||occupied.some(p=>Math.hypot(p[0]-x,p[1]-y)<42))continue;
+   occupied.push([x,y]);
+   ctx.fillStyle=state.style==='night'?'#233b47':'#fff7e8';
+   ctx.strokeStyle=state.style==='night'?'#c4b298':'#92785d';
+   ctx.lineWidth=1.3;ctx.fillRect(x-17,y-12,34,24);ctx.strokeRect(x-17,y-12,34,24);
+   ctx.fillStyle=state.style==='night'?'#f8ead4':'#755942';ctx.fillText(road.id,x,y+1);
+  }
+  ctx.restore();
+ }
  function drawVillageLabels(){
   const level=state.scale/state.baseScale;
   if(!state.world||!state.layers.labels||!state.layers.places||state.cityMode||level<11||level>58)return;
