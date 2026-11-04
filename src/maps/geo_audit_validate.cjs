@@ -8,6 +8,9 @@ const w=worldAPI.makeWorld(geo),audit=api.analyze(geo,w),repeat=api.analyze(geo,
 assert.deepEqual(audit,repeat,'Audit non reproductible');
 assert.equal(audit.version,'1.4.0');
 assert.equal(audit.count.rivers,geo.rivers.length+w.streams.length);
+assert.equal(audit.count.lakeConflicts,0,'Une voie traverse le lac Orélys');
+assert.equal(audit.count.coastalConflicts,0,'Une voie sort du territoire terrestre');
+assert.equal(w.landCorrections.unresolved.length,0,'Un détour terrestre est non résolu');
 assert.equal(audit.count.railLines,geo.railways.length);
 assert.ok(audit.count.roadCrossings>2,'Croisements fluviaux nationaux absents');
 assert.ok(audit.bridges.every(x=>x.kind==='franchissement-fluvial-à-qualifier'));
