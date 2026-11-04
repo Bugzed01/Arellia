@@ -210,7 +210,7 @@
     if(!land([x,y]))continue;
     const dx=world.height(x+1,y)-world.height(x-1,y),dy=world.height(x,y+1)-world.height(x,y-1);
     const magnitude=Math.hypot(dx,dy);
-    if(magnitude<1.2)continue;
+    if(magnitude<.38)continue;
     const unit=[-dy/magnitude,dx/magnitude],width=.3+rand()*1.15;
     const points=[pt(x-unit[0]*width,y-unit[1]*width),pt(x+unit[0]*width,y+unit[1]*width)];
     if(onLand(points,geo))cliffs.push({points,tone:rand()});

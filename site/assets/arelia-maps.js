@@ -10,7 +10,7 @@
  const detailAPI=window.AreliaDetail;if(!detailAPI)throw Error('Détails géographiques indisponibles');
  const auditAPI=window.AreliaGeoAudit;if(!auditAPI)throw Error('Outil de diagnostic indisponible');
  const measureAPI=window.AreliaMeasure;if(!measureAPI)throw Error('Outil de mesure indisponible');
- const state={markerNodes:new Map(),data:null,images:{},style:'game',layers:{details:true,roads:true,rail:true,water:true,places:true,labels:true,urban:true,canals:true,zones:true,transit:true,metro:true,metroRail:true,relief:false,lowlands:false,infrastructure:false},category:'all',query:'',selected:null,city:null,secondaryData:null,secondaryCity:null,world:null,audit:null,measure:{active:false,points:[]},cityMode:false,metroMode:false,scale:1,baseScale:1,tx:0,ty:0,route:null,nationalGraph:null,metroRoute:null,roadGraph:null,railGraph:null,drag:null,raf:0,dpr:1};
+ const state={markerNodes:new Map(),data:null,images:{},style:'game',layers:{details:true,shading:true,roads:true,rail:true,water:true,places:true,labels:true,urban:true,canals:true,zones:true,transit:true,metro:true,metroRail:true,relief:false,lowlands:false,infrastructure:false},category:'all',query:'',selected:null,city:null,secondaryData:null,secondaryCity:null,world:null,audit:null,measure:{active:false,points:[]},cityMode:false,metroMode:false,scale:1,baseScale:1,tx:0,ty:0,route:null,nationalGraph:null,metroRoute:null,roadGraph:null,railGraph:null,drag:null,raf:0,dpr:1};
  const terrain=new Image(),plan=new Image();terrain.src='../assets/arelia-terrain.webp';plan.src='../assets/arelia-plan.webp';state.images={terrain,plan};
  const coord=([x,y])=>[x*state.scale+state.tx,y*state.scale+state.ty];
  const num=(n)=>Math.round(n).toLocaleString('fr-FR');
@@ -92,6 +92,36 @@
    ctx.restore();
  }
 
+ // Ombres topographiques calculées sur le terrain fictif, sans téléchargements.
+ // Le raster est créé seulement pour les tuiles visibles, puis mis en cache.
+ const shadeCache=new Map(),SHADE_LIMIT=100,SHADE_SIZE=96;
+ function shadedTile(i,j){
+  const key=i+','+j;
+  if(shadeCache.has(key)){const old=shadeCache.get(key);shadeCache.delete(key);shadeCache.set(key,old);return old;}
+  const tile=document.createElement('canvas');
+  if(typeof tile.getContext!=='function')return null; // Simulateur DOM sans Canvas auxiliaire
+  tile.width=tile.height=SHADE_SIZE;
+  const painter=tile.getContext('2d');
+  if(!painter||typeof painter.createImageData!=='function'||typeof painter.putImageData!=='function')return null;
+  const pixels=painter.createImageData(SHADE_SIZE,SHADE_SIZE);
+  if(!pixels?.data)return null;
+  const out=pixels.data,step=24/SHADE_SIZE,ox=i*24,oy=j*24;
+  for(let y=0;y<SHADE_SIZE;y++)for(let x=0;x<SHADE_SIZE;x++){
+   const wx=ox+(x+.5)*step,wy=oy+(y+.5)*step;
+   const west=worldAPI.height(wx-1,wy),east=worldAPI.height(wx+1,wy);
+   const north=worldAPI.height(wx,wy-1),south=worldAPI.height(wx,wy+1);
+   const illumination=(west-east)*.70+(north-south)*.42;
+   const shadow=illumination<0;
+   const a=Math.min(120,Math.round(Math.abs(illumination)*95+14));
+   const p=(y*SHADE_SIZE+x)*4;
+   out[p]=shadow?29:252;out[p+1]=shadow?48:251;out[p+2]=shadow?46:229;out[p+3]=a;
+  }
+  painter.putImageData(pixels,0,0);
+  shadeCache.set(key,tile);
+  if(shadeCache.size>SHADE_LIMIT)shadeCache.delete(shadeCache.keys().next().value);
+  return tile;
+ }
+
  // Géographie de proximité inspirée de la lisibilité d'une carte de jeu,
  // sans reprendre les tracés ou les textures de GTA V.
  function drawDetailTile(tile,level,night){
@@ -113,6 +143,10 @@
   for(const m of tile.meadows){
    ctx.globalAlpha=alpha*(night?.17:.23);poly(m.polygon);
    ctx.fillStyle=night?'#73927e':m.tone>.48?style.ground:style.edge;ctx.fill();
+  }
+  for(const vegetation of tile.riparian||[]){
+   ctx.globalAlpha=alpha*(night?.27:.36);poly(vegetation.polygon);
+   ctx.fillStyle=night?'#4b716f':'#74a798';ctx.fill();
   }
   if(level>=15){
    for(const field of tile.parcels){
@@ -153,6 +187,12 @@
     ctx.fillStyle=night?'#486e55':'#7e9d68';ctx.fill();
    }
   }
+  if(level>=19){
+   for(const ridge of tile.cliffs||[]){
+    ctx.globalAlpha=alpha*(night?.33:.36);
+    stroke(ridge.points,night?'#b0b6a6':'#756c60',ridge.tone>.6?.19:.12);
+   }
+  }
   if(level>=32&&state.layers.urban){
    for(const house of tile.structures){
     ctx.globalAlpha=alpha*.95;poly(house.polygon);
@@ -191,6 +231,10 @@
      const tile=worldAPI.localTile(state.data,i,j);
      if(!tile)continue;
      const palette=tile.kind;
+     if(state.layers.shading&&(state.style==='game'||state.style==='terrain'||state.layers.relief)){
+       const shade=shadedTile(i,j);
+       if(shade){ctx.globalAlpha=.90;ctx.drawImage(shade,i*24,j*24,24,24);}
+     }
      if(level>=12&&['cultures','prairie','steppe','desert'].includes(palette)){
        for(const f of tile.fields){
          patch(f.polygon);
@@ -222,7 +266,7 @@
        ctx.globalAlpha=night?.34:.50;
        for(const levelLine of tile.contours)for(const seg of levelLine.segments)line(seg,night?'#c9c0ae':'#9b8c71',Math.min(.13,1/state.scale));
      }
-     drawDetailTile(detailAPI.tile(state.data,tile,i,j),level,night);
+     drawDetailTile(detailAPI.tile(state.data,tile,i,j,state.world),level,night);
    }
    ctx.restore();
  }
@@ -343,14 +387,14 @@
    ctx.save();clipLand();ctx.globalAlpha*=carto.fade(level,10,18);
    for(const town of world.settlements){
      if(!show(town))continue;
-     const plan=worldAPI.townPlan(town);
+     const plan=worldAPI.townPlan(town,state.data);
      ctx.beginPath();ctx.ellipse(town.x,town.y,town.radius,town.radius*.77,0,0,Math.PI*2);
-     ctx.fillStyle=state.style==='night'?'rgba(111,114,109,.92)':'rgba(226,216,196,.88)';ctx.fill();
+     ctx.fillStyle=state.style==='night'?'rgba(111,114,109,.66)':'rgba(214,204,181,.61)';ctx.fill();
      if(state.layers.urban){
        for(const street of plan.roads){
          ctx.beginPath();ctx.moveTo(street.points[0][0],street.points[0][1]);
          for(const pt of street.points.slice(1))ctx.lineTo(pt[0],pt[1]);
-         ctx.strokeStyle=state.style==='night'?'#d9d2bb':'#fdf9ed';ctx.lineWidth=Math.min(.6,2.5/state.scale);ctx.stroke();
+         ctx.strokeStyle=state.style==='night'?'#d9d2bb':'#fff9ed';ctx.lineWidth=Math.min(street.kind==='principale'?.64:.46,(street.kind==='principale'?3.8:2.8)/state.scale);ctx.stroke();
        }
        if(level>=21)for(const house of plan.houses){
          ctx.beginPath();ctx.moveTo(house.polygon[0][0],house.polygon[0][1]);
@@ -747,7 +791,7 @@
   if(img.complete&&img.naturalWidth){if(state.style==='night')ctx.filter='brightness(.52) saturate(.65) hue-rotate(20deg)';else if(state.style==='game')ctx.filter='brightness(1.06) saturate(.86) contrast(.97)';ctx.drawImage(img,0,0,1500,1400);ctx.filter='none';}
   markerRoadNodes();drawRoute();drawMetroRoute();drawMeasure();ctx.restore();
   if(state.layers.labels && state.scale<state.baseScale*7){state.data.labels.forEach(p=>drawLabel(p.x,p.y,p.name,p.kind));}
-  syncMarkers();scaleBar();}
+  drawVillageLabels();syncMarkers();scaleBar();}
  function scaleBar(){
   const b=carto.scaleBar(state.scale,state.data.meta.kilometres_per_unit);
   if(!b)return;
@@ -755,6 +799,25 @@
   const level=state.scale/state.baseScale;
   $('maps-zoom-band').textContent=({empire:'Empire',agglomeration:'Agglomération',quartiers:'Quartiers',rues:'Rues'})[carto.band(level)]+' · zoom ×'+Math.round(level*10)/10;
 }
+ function drawVillageLabels(){
+  const level=state.scale/state.baseScale;
+  if(!state.world||!state.layers.labels||!state.layers.places||state.cityMode||level<11||level>58)return;
+  const [w,h]=getDim(),taken=[];
+  ctx.save();ctx.setTransform(state.dpr,0,0,state.dpr,0,0);
+  ctx.font=level>=25?'700 11px Arial':'600 10px Arial';
+  ctx.textAlign='center';ctx.textBaseline='middle';
+  for(const town of state.world.settlements){
+   const [x,y]=coord([town.x,town.y]);
+   if(x<60||x>w-60||y<34||y>h-28)continue;
+   const labelY=y+15,span=Math.min(115,Math.max(42,town.name.length*6.1+12));
+   const b=[x-span/2,labelY-8,x+span/2,labelY+8];
+   if(taken.some(t=>b[0]<t[2]&&b[2]>t[0]&&b[1]<t[3]&&b[3]>t[1]))continue;
+   taken.push(b);
+   ctx.lineWidth=3;ctx.strokeStyle='rgba(255,252,239,.94)';ctx.strokeText(town.name,x,labelY);
+   ctx.fillStyle=state.style==='night'?'#dae7dc':'#394d48';ctx.fillText(town.name,x,labelY);
+  }
+  ctx.restore();
+ }
  function syncMarkers(){
   const [w,h]=getDim(),q=normalize(state.query),visibleItems=[];
   for(const p of [...state.data.places,...(state.city?.places||[]),...Object.values(state.secondaryData?.cities||{}).flatMap(city=>city.places),...Object.values(state.world?.cityPlans||{}).flatMap(city=>city.places)]){

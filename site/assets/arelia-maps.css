@@ -117,3 +117,7 @@
 .maps-view-toggle [data-style="game"].selected{background:#6f9175;color:#fff}
 @media(max-width:900px){.maps-view-toggle button{padding:8px 9px;font-size:11px}}
 @media(max-width:700px){.maps-view-toggle button{padding:7px 8px;font-size:10px}}
+
+/* Réalisme 1.8 : toponymes en cartouche lisibles, détails de relief activables. */
+.maps-layer-panel{max-height:min(70vh,630px);overflow-y:auto}
+.maps-layer-panel label:hover{color:#0d6776}

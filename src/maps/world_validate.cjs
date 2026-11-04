@@ -98,3 +98,42 @@ assert.ok(illustrated>=150,'Détails géographiques insuffisants');
 assert.ok(buildings>=10,'Bâti rural insuffisant');
 assert.ok(paths>=10,'Sentiers et chemins insuffisants');
 console.log('Atlas détaillé 1.7 : '+illustrated+' éléments de paysages, '+buildings+' bâtiments, '+paths+' chemins sur cellules échantillons.');
+
+// Arélia Maps 1.8 — voies contiguës et habitat local rattaché aux voies.
+assert.deepEqual(sample.tracks[0].points[2],sample.tracks[1].points[2],
+ 'Les deux chemins de la cellule doivent se rejoindre au même carrefour');
+let checkedVillages=0,housesOnLand=0,roadsOnLand=0;
+for(const town of w.settlements.slice(0,45)){
+ const plan=worldModule.townPlan(town,geo);
+ assert.ok(plan.roads.length>=3,'Réseau du village absent : '+town.id);
+ assert.ok(plan.houses.length>=15,'Village sans tissu bâti : '+town.id);
+ for(const road of plan.roads){
+  assert.ok(worldModule.pathOnLand(road.points,geo),'Rue sur l’eau : '+town.id);
+  roadsOnLand++;
+ }
+ for(const house of plan.houses){
+  assert.ok(house.polygon.every(p=>worldModule.isLand(p,geo)),'Maison hors terre : '+town.id);
+  housesOnLand++;
+ }
+ checkedVillages++;
+}
+let parcelsOnLand=0,tracksOnLand=0,riparian=0,shadedMountains=0;
+for(const [i,j] of [[35,31],[34,31],[36,31],[46,37],[22,38],[42,45],[49,44],[37,41],[23,27],[29,20],[32,11]]){
+ const base=worldModule.localTile(geo,i,j);
+ if(!base)continue;
+ const fine=detailModule.tile(geo,base,i,j,w);
+ assert.deepEqual(fine,detailModule.tile(geo,base,i,j,w),'Tuile fine non reproductible');
+ for(const item of [...fine.parcels,...fine.structures,...fine.meadows,...fine.riparian]){
+  assert.ok(item.polygon.every(p=>worldModule.isLand(p,geo)),'Micro-polygone hors terre '+fine.id);
+  parcelsOnLand++;
+ }
+ for(const p of fine.paths){
+  assert.ok(detailModule.lineOnLand(p.points,geo),'Chemin rural passant dans l’eau '+fine.id);
+  tracksOnLand++;
+ }
+ riparian+=fine.riparian.length;shadedMountains+=fine.cliffs.length;
+}
+assert.ok(parcelsOnLand>250,'Habitat et cultures insuffisants');
+assert.ok(tracksOnLand>45,'Réseau rural trop faible');
+assert.ok(riparian>=6,'Végétation des berges absente');
+console.log('Arélia Maps 1.8 : '+checkedVillages+' villages inspectés, '+housesOnLand+' bâtiments terrestres, '+roadsOnLand+' rues, '+tracksOnLand+' chemins, '+riparian+' éléments de ripisylve.');

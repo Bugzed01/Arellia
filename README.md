@@ -216,3 +216,11 @@ Cette passe ajoute un style **Atlas** par défaut, inspiré de la clarté cartog
 Le nouveau moteur `site/assets/arelia-detail.js` génère des couches locales continues : prairies, parcelles, bosquets, pistes, petits chemins, hameaux, fermes, vergers, mares et végétation des zones arides. L'atlas ne charge que les cellules visibles, garde un cache plafonné et produit des détails déterministes. Le bâti des villages et plusieurs plans urbains ont été densifiés. Les tracés routiers ajoutés par ce calque sont **visuels et non navigables** ; les itinéraires continuent de s'appuyer sur leur propre graphe validé.
 
 La géographie établie de l'île (1 000 000 km², 100 millions d'habitants, Empire constitutionnel, capitale Vésone) reste inchangée. Les micro-détails générés sont des propositions de worldbuilding et ne constituent ni carte cadastrale ni topographie réelle.
+
+## Arélia Maps 1.8 — topologie locale et réalisme territorial
+
+Le générateur rural classe les tuiles suivant leur **proximité aux routes et localités**, leur biome et la pente. La densité bâtie n'est plus uniformément distribuée dans le désert, les montagnes et les campagnes. Les maisons suivent des chemins, les chemins secondaires partent de sommets existants et certains se raccordent graphiquement aux axes nationaux. Ces détails restent **illustratifs et ne participent pas au graphe d'itinéraires**.
+
+Dans les villages, les rues partagent maintenant des carrefours identiques et les bâtiments sont générés en parcelles orientées selon la voirie, avec rejet des maisons sur l'eau. Les parcelles agricoles présentent une orientation cohérente, les rives des cours d'eau bénéficient d'une végétation spécifique et les versants rocheux de hachures.
+
+Le rendu Atlas et Relief peut ajouter une ombre topographique locale calculée depuis l'indice de hauteur (non métrique), sans API ni téléchargement de tuiles. Le calque *Ombres du relief* peut être désactivé. Les noms des villages apparaissent progressivement avec contrôle des collisions. Toutes les géométries restent fictives, reproductibles et provisoires.
