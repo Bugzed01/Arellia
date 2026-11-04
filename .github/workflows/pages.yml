@@ -35,6 +35,7 @@ jobs:
           node src/maps/display_validate.cjs
       - name: Valider la couverture géographique nationale
         run: |
+          node --check site/assets/arelia-detail.js
           node --check site/assets/arelia-world.js
           node src/maps/world_validate.cjs
       - name: Tester le démarrage et la navigation de l'atlas
