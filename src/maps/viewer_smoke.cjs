@@ -115,6 +115,11 @@ async function scenario(query){
    const id=query.split('=')[1];
    assert.equal(ui.els.get('maps-other-cities').value,id);
    assert.ok(ui.wrap.classList.contains('maps-secondary-mode'),'Vue urbaine non ouverte : '+id);
+   const diagnostic=ui.els.get('maps-detail').children.find(x=>x?.textContent==='Diagnostiquer le réseau routier');
+   assert.ok(diagnostic&&typeof diagnostic.onclick==='function','Diagnostic routier manquant : '+id);
+   diagnostic.onclick();
+   const panel=ui.els.get('maps-detail').children.find(x=>x?.className==='maps-network-status');
+   assert.ok(panel?.textContent.includes('composantes'),'Diagnostic routier incomplet : '+id);
  }
  if(query==='?vue=vesone')assert.ok(ui.wrap.classList.contains('maps-city-mode'));
  if(query==='?vue=metropole')assert.ok(ui.wrap.classList.contains('maps-metro-mode'));
