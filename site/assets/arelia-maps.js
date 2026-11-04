@@ -887,7 +887,7 @@
   if(img.complete&&img.naturalWidth){if(state.style==='night')ctx.filter='brightness(.52) saturate(.65) hue-rotate(20deg)';else if(state.style==='game')ctx.filter='brightness(1.06) saturate(.86) contrast(.97)';ctx.drawImage(img,0,0,1500,1400);ctx.filter='none';}
   drawNationalHillshade();markerRoadNodes();drawProposedConnectors();drawRoute();drawMetroRoute();drawMeasure();ctx.restore();
   if(state.layers.labels && state.scale<state.baseScale*7){state.data.labels.forEach(p=>drawLabel(p.x,p.y,p.name,p.kind));}
-  drawVillageLabels();drawRoadShields();syncMarkers();scaleBar();}
+  drawVillageLabels();drawRoadShields();drawUrbanRoadLabels();syncMarkers();scaleBar();}
  function scaleBar(){
   const b=carto.scaleBar(state.scale,state.data.meta.kilometres_per_unit);
   if(!b)return;
@@ -926,6 +926,50 @@
    ctx.fillStyle=state.style==='night'?'#f8ead4':'#755942';ctx.fillText(road.id,x,y+1);
   }
   ctx.restore();
+ }
+ // Toponymie routière à l'échelle urbaine : seules les voies déjà nommées
+ // sont légendées. Les rues procédurales anonymes ne reçoivent pas de faux noms.
+ function drawUrbanRoadLabels(){
+   const level=state.scale/state.baseScale;
+   if(!state.cityMode||!state.layers.labels||level<14)return;
+   const city=state.secondaryCity||state.city;
+   const roads=[
+     ...(city.avenues||[]),
+     ...(city.streets||[]),
+     ...(!state.secondaryCity?(city.metropolitan?.roads||[]):[])
+   ].filter(p=>p.name&&p.points?.length>=2);
+   const [w,h]=getDim(),taken=[];
+   ctx.save();ctx.setTransform(state.dpr,0,0,state.dpr,0,0);
+   ctx.font='700 10px Arial';ctx.textAlign='center';ctx.textBaseline='middle';
+   for(const road of roads){
+     let length=0;const edges=[];
+     for(let k=1;k<road.points.length;k++){
+       const a=road.points[k-1],b=road.points[k],d=Math.hypot(a[0]-b[0],a[1]-b[1]);
+       edges.push({a,b,d});length+=d;
+     }
+     if(length<.4)continue;
+     let target=length*.50,p=null,angle=0;
+     for(const edge of edges){
+       if(target<=edge.d){
+         const t=target/edge.d;
+         p=[edge.a[0]*(1-t)+edge.b[0]*t,edge.a[1]*(1-t)+edge.b[1]*t];
+         angle=Math.atan2(edge.b[1]-edge.a[1],edge.b[0]-edge.a[0]);break;
+       }
+       target-=edge.d;
+     }
+     if(!p)continue;
+     const [x,y]=coord(p),radius=Math.min(125,Math.max(32,road.name.length*3.5));
+     if(x<radius||y<68||x>w-radius||y>h-40||taken.some(q=>Math.hypot(x-q[0],y-q[1])<radius+q[2]))continue;
+     taken.push([x,y,radius]);
+     if(angle>Math.PI/2)angle-=Math.PI;
+     if(angle< -Math.PI/2)angle+=Math.PI;
+     ctx.save();ctx.translate(x,y);ctx.rotate(angle);
+     ctx.lineWidth=3.3;ctx.strokeStyle='rgba(255,252,237,.9)';
+     ctx.strokeText(road.name,0,0);
+     ctx.fillStyle=state.style==='night'?'#cad6cf':'#52645a';
+     ctx.fillText(road.name,0,0);ctx.restore();
+   }
+   ctx.restore();
  }
  function drawVillageLabels(){
   const level=state.scale/state.baseScale;
