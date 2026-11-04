@@ -283,8 +283,14 @@
    if(a.edgeId===b.edgeId)optionsEnd.push({id:-1,units:Math.abs(a.t-b.t)*a.edge.units});
    optionsEnd.sort((a,b)=>a.units-b.units);
    const winner=optionsEnd[0];if(!Number.isFinite(winner.units))continue;
-   const roads=[],points=[];
-   if(winner.id===-1){points.push(a.point,b.point);roads.push(a.edge.roadId);}
+   const roads=[],points=[],provisionalSegments=[];
+   const proposed=(start,end,edge)=>{
+    if(edge.provisional&&dist(start,end)>.00001)provisionalSegments.push([start,end]);
+   };
+   if(winner.id===-1){
+    points.push(a.point,b.point);roads.push(a.edge.roadId);
+    proposed(a.point,b.point,a.edge);
+   }
    else {
     const nodes=[],roadEdges=[];let v=winner.id,k=0;
     while(v>=0){if(++k>graph.nodes.length+1)break;nodes.push(graph.nodes[v]);if(prev[v]>=0)roadEdges.push(via[v]);v=prev[v];}
@@ -292,13 +298,21 @@
     nodes.reverse();roadEdges.reverse();
     roads.push(a.edge.roadId,...roadEdges.map(id=>graph.edges[id].roadId),b.edge.roadId);
     points.push(a.point,...nodes,b.point);
+    if(nodes.length){
+     proposed(a.point,nodes[0],a.edge);
+     for(let j=0;j<roadEdges.length;j++)
+      proposed(nodes[j],nodes[j+1],graph.edges[roadEdges[j]]);
+     proposed(nodes.at(-1),b.point,b.edge);
+    }
    }
    const clean=[];for(const pt of points)if(!clean.length||dist(clean.at(-1),pt)>.00001)clean.push(pt);
    const access=[];
    if(a.distance>.02)access.push({from:xy(from),to:a.point,distance:a.distance});
    if(b.distance>.02)access.push({from:b.point,to:xy(to),distance:b.distance});
    const route={points:clean,units:winner.units,roads:[...new Set(roads)],
-    segments:Math.max(0,clean.length-1),access,source:'local',cityId:graph.cityId,
+    segments:Math.max(0,clean.length-1),access,provisionalSegments,
+    provisionalUnits:provisionalSegments.reduce((sum,[p,q])=>sum+dist(p,q),0),
+    source:'local',cityId:graph.cityId,
     component:pair.component,provisionalConnectors:graph.count.proposedConnectors,
     status:'voies locales représentées ; accès hors voie signalés'};
    const penalty=winner.units+pair.gap*3.5;
@@ -355,6 +369,8 @@
     if(!points.length||dist(points.at(-1),q)>.00001)points.push(q);
    return {points,sections:parts,units:parts.reduce((s,p)=>s+p.units,0),
     roads:[...new Set(roads)],segments:Math.max(0,points.length-1),
+    provisionalSegments:parts.flatMap(p=>p.provisionalSegments||[]),
+    provisionalUnits:parts.reduce((sum,p)=>sum+(p.provisionalUnits||0),0),
     mode:'hierarchical',from:from.id,to:to.id,access,
     status:'liaisons nationales et urbaines représentées ; accès hors voie signalés'};
   }
