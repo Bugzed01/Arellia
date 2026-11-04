@@ -9,6 +9,7 @@
  const worldAPI=window.AreliaWorld;if(!worldAPI)throw Error('Moteur territorial indisponible');
  const urbanAPI=window.AreliaUrbanRouting;if(!urbanAPI)throw Error('Routage urbain indisponible');
  const roadsAPI=window.AreliaRoadDetail;if(!roadsAPI)throw Error('Rendu détaillé des voies indisponible');
+ const sceneAPI=window.AreliaUrbanScene;if(!sceneAPI)throw Error('Rendu du tissu urbain indisponible');
  const roadGapAPI=window.AreliaRoadGaps;if(!roadGapAPI)throw Error('Diagnostic des ruptures routières indisponible');
  const detailAPI=window.AreliaDetail;if(!detailAPI)throw Error('Détails géographiques indisponibles');
  const auditAPI=window.AreliaGeoAudit;if(!auditAPI)throw Error('Outil de diagnostic indisponible');
@@ -588,7 +589,7 @@
    for(let j=j0;j<=j1;j++)for(let i=i0;i<=i1;i++){
      const tile=worldAPI.cityTile(city,i,j);
      if(!tile)continue;
-     for(const building of tile.buildings)paint(building.polygon,night?'#aeb2ae':building.roof,night?'#6d7877':'#a7a095',.05);
+     for(const building of tile.buildings)sceneAPI.drawBuilding(ctx,building,night,level);
    }
    ctx.restore();
  }
@@ -596,6 +597,7 @@
  function drawSecondaryCity(city){
   const level=state.scale/state.baseScale,night=state.style==='night';
   if(!city)return;
+  const urbanScene=level>=14?sceneAPI.create(city,state.data):null;
   const paint=(pts,color,edge=null)=>{
     if(!pts?.length)return;ctx.beginPath();ctx.moveTo(pts[0][0],pts[0][1]);
     for(let k=1;k<pts.length;k++)ctx.lineTo(pts[k][0],pts[k][1]);
@@ -615,11 +617,12 @@
   for(const yard of city.portYards||[])paint(yard.polygon,night?'#53666d':'#bbb7a7',night?'#657578':'#a09b8f');
   for(const basin of city.harbourBasins||[])paint(basin.polygon,night?'#205974':'#79b3c7',night?'#387189':'#c4dce4');
   for(const park of city.parks)paint(park.polygon,night?'#426b58':city.parkColor,night?'#51695a':'#a5b99d');
+  if(state.layers.urban)sceneAPI.paintLand(ctx,urbanScene,night,level);
   if(state.layers.urban){
    if(level>=12){
      ctx.save();ctx.globalAlpha*=carto.fade(level,12,17);
-     for(const b of city.buildings)paint(b.polygon,night?'#9d9e95':b.roof,night?'#707676':'#aa9f90');
-     for(const warehouse of city.warehouses||[])paint(warehouse.polygon,night?'#a0a9a7':warehouse.roof,night?'#77878a':'#a2a8a1');
+     for(const b of city.buildings)sceneAPI.drawBuilding(ctx,b,night,level);
+     for(const warehouse of city.warehouses||[])sceneAPI.drawBuilding(ctx,warehouse,night,level);
      ctx.restore();
      if(level>=40)drawCityMicro(city,paint,night);
    }
@@ -639,6 +642,7 @@
     for(const quay of city.quays||[])stroke(quay.points,night?'#d3c8ac':'#f2e2c9',.65);
     for(const bridge of city.bridges||[])roadsAPI.paintBridge(ctx,bridge,night,level);
   }
+  if(state.layers.urban)sceneAPI.paintStreet(ctx,urbanScene,night,level);
   ctx.restore();
   if(state.layers.labels&&level>=9&&level<22){
     for(const p of city.places.filter(x=>x.category==='quartier'))drawLabel(p.x,p.y,p.name,'region');
@@ -649,6 +653,7 @@
   const city=state.city,level=state.scale/state.baseScale;
   if(!city)return;
   const night=state.style==='night';
+  const urbanScene=level>=14?sceneAPI.create(city,state.data):null;
   ctx.save();ctx.globalAlpha*=carto.fade(level,5.6,8.3);
   const trace=(pts,close=false)=>{
     if(!pts||!pts.length)return;
@@ -676,7 +681,7 @@
     if(level>=6)for(const block of city.blocks)fill(block.polygon,night?'#66686b':block.color,night?'#555d60':'#f6f2e7',.17);
     if(level>=12){
      ctx.save();ctx.globalAlpha*=carto.fade(level,12,17);
-     for(const building of city.buildings)fill(building.polygon,night?'#a6a39d':building.roof,night?'#747976':'#b9ab99',.075);
+     for(const building of city.buildings)sceneAPI.drawBuilding(ctx,building,night,level);
      ctx.restore();
      if(level>=40)drawCityMicro(city,fill,night);
     }
@@ -692,6 +697,7 @@
   for(const park of city.parks)fill(park.polygon,night?'#416554':'#91b79c',night?'#6b8472':'#b5cbaa',.18);
   for(const basin of city.harbour_basins||[])fill(basin.polygon,night?'#235f75':'#78adba',night?'#496c77':'#bad7db',.28);
   for(const square of city.squares||[])fill(square.polygon,night?'#9b8b74':'#e7ddca',night?'#c5b39d':'#cabb9e',.25);
+  if(state.layers.urban)sceneAPI.paintLand(ctx,urbanScene,night,level);
   if(state.layers.urban){
     if(level>=11){
        ctx.save();ctx.globalAlpha*=carto.fade(level,11,15);
@@ -716,6 +722,7 @@
     }
     for(const bridge of city.bridges)roadsAPI.paintBridge(ctx,bridge,night,level);
   }
+  if(state.layers.urban)sceneAPI.paintStreet(ctx,urbanScene,night,level);
 
   if(state.layers.transit&&level>=12){
     for(const line of city.transit_lines||[]){
