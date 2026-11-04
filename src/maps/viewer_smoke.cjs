@@ -108,7 +108,7 @@ async function scenario(query){
  assert.deepEqual(ui.errors,[],'Erreur JS au démarrage : '+query+'\n'+ui.errors.join('\n'));
  assert.equal(ui.els.get('maps-loading').hidden,true,'Carte non chargée : '+query);
  assert.ok(ui.frames>0,'Canvas non dessiné : '+query);
- assert.ok(ui.els.get('maps-markers').children.length>700,'Marqueurs manquants : '+query);
+ assert.ok(ui.els.get('maps-markers').children.length>850,'Couverture nationale et sites naturels manquants : '+query);
  assert.ok(ui.els.get('maps-count').textContent!==undefined,'Liste absente : '+query);
  if(query==='?vue=occidian'||query==='?vue=katoru'){
    const id=query.split('=')[1];

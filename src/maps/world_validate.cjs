@@ -155,3 +155,25 @@ for(const city of Object.values(w.cityPlans)){
  }
 }
 console.log('Continuité urbaine : '+Object.values(w.cityPlans).length+' villes avec rues rattachées aux avenues et bâti le long des voies.');
+
+// v1.10 : les cours d'eau secondaires restent hors lac et mer.
+for(const stream of w.streams){
+ assert.ok(worldModule.pathOnLand(stream.points,geo),'Affluent hors terre : '+stream.id);
+ const river=geo.rivers.find(r=>r.id===stream.join);
+ assert.ok(river,'Affluent sans fleuve de raccordement : '+stream.id);
+ assert.ok(river.points.some(p=>p[0]===stream.points.at(-1)[0]&&p[1]===stream.points.at(-1)[1]),
+  'Affluent ne rejoint pas son cours principal : '+stream.id);
+}
+assert.equal(w.landmarks.length,75,'Nombre des sites naturels proposés incorrect');
+assert.equal(new Set(w.landmarks.map(p=>p.id)).size,75,'Identifiants de sites naturels dupliqués');
+assert.equal(new Set(w.landmarks.map(p=>p.name)).size,75,'Toponymes de sites naturels dupliqués');
+for(const place of w.landmarks){
+ assert.equal(place.status,'Proposition non canonique');
+ assert.equal(place.category,'nature');
+ assert.ok(worldModule.isLand([place.x,place.y],geo),'Site naturel placé dans l’eau : '+place.id);
+ assert.ok(place.reliefIndex>=1&&place.reliefIndex<=100);
+ assert.ok(place.biome);
+}
+for(const kind of ['panorama','massif','clairiere','dunes','vallon'])
+ assert.equal(w.landmarks.filter(p=>p.kind===kind).length,15,'Répartition incorrecte : '+kind);
+console.log('Hydrographie 1.10 : '+w.streams.length+' affluents entièrement terrestres et 75 sites remarquables déterministes.');
