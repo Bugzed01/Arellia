@@ -28,6 +28,7 @@ jobs:
         run: |
           node src/maps/display_validate.cjs
           node src/maps/route_validate.cjs
+          node src/maps/spatial_validate.cjs
           node src/maps/world_validate.cjs
           node src/maps/national_route_validate.cjs
           node src/maps/geo_audit_validate.cjs
