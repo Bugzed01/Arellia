@@ -69,16 +69,16 @@
   }
   // Cours et petits parkings suivent l'orientation de leur voie d'accès.
   // Pas de routabilité implicite : ces cours ne sont que des détails de surface.
-  const maxLots=id==='vesone'?58:city.cityType?50:42;
+  const maxLots=id==='vesone'?74:city.cityType?64:54;
   for(let attempt=0;attempt<4000&&scene.parking.length<maxLots;attempt++){
    const road=roadList[Math.floor(random()*roadList.length)];
    if(!road?.points?.length||road.points.length<2)continue;
    const seg=Math.floor(random()*(road.points.length-1)),a=road.points[seg],b=road.points[seg+1],len=d(a,b);
    if(len<1.4)continue;
    const t=.13+random()*.74,ux=(b[0]-a[0])/len,uy=(b[1]-a[1])/len,side=random()<.5?-1:1;
-   const offset=2.7+random()*2.5,p=point(a[0]+(b[0]-a[0])*t-uy*offset*side,a[1]+(b[1]-a[1])*t+ux*offset*side);
-   if(occupied(p,4.4)||nearBuilding(p,2.8)||exclusion.some(q=>inside(p,q.polygon)))continue;
-   const width=1.25+random()*1.25,depth=.65+random()*.5,theta=Math.atan2(uy,ux);
+   const offset=3.8+random()*4.6,p=point(a[0]+(b[0]-a[0])*t-uy*offset*side,a[1]+(b[1]-a[1])*t+ux*offset*side);
+   if(occupied(p,3.6)||nearBuilding(p,1.9)||exclusion.some(q=>inside(p,q.polygon)))continue;
+   const width=1.05+random()*1.0,depth=.60+random()*.40,theta=Math.atan2(uy,ux);
    const polygon=rect(p[0],p[1],width,depth,theta);
    if(!polygon.every(isSafe))continue;
    reserve(p);
