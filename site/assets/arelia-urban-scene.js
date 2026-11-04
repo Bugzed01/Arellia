@@ -166,15 +166,16 @@
   if(!scene||level<15)return;
   ctx.save();
   // Nuances de parcelles : sous-couche des maisons, cours et stationnements.
+  const baseAlpha=ctx.globalAlpha;
   for(const block of scene.blocks||[]){
    if(!shape(ctx,block.polygon))continue;
-   ctx.globalAlpha=night?.22:.28;
+   ctx.globalAlpha=baseAlpha*(night?.22:.28);
    ctx.fillStyle=night?'#8b8b81':block.landuse==='commercial'?'#c2b9a5':
      block.landuse==='courtyard'?'#b9c1ad':block.tone>.55?'#e4d8c2':'#d6c7b1';
    ctx.fill();
    if(level>=23){ctx.strokeStyle=night?'#777f78':'#baaa94';ctx.lineWidth=.07;ctx.stroke();}
   }
-  ctx.globalAlpha=1;
+  ctx.globalAlpha=baseAlpha;
   for(const area of scene.parking){
    if(!shape(ctx,area.polygon))continue;
    ctx.fillStyle=night?'#515a56':area.kind==='service'?'#c6beb0':'#d2c9b8';ctx.fill();
