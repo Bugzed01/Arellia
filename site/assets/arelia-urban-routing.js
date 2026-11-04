@@ -147,9 +147,25 @@
    }
   }
   const at=p=>{const id=base.nodeIndex.get(key(p));return id===undefined?-1:base.component[id]};
-  for(const line of lines)for(const p of [line.points[0],line.points.at(-1)]){
-   const sourceComponent=at(p);if(sourceComponent<0)continue;
-   const k=key(p);if(!ends.has(k))ends.set(k,{point:p,component:sourceComponent,lineId:line.id});
+  for(const line of lines){
+   for(const [p,neighbour] of [[line.points[0],line.points[1]],[line.points.at(-1),line.points.at(-2)]]){
+    const sourceComponent=at(p);if(sourceComponent<0)continue;
+    const k=key(p),incident=[neighbour[0]-p[0],neighbour[1]-p[1]];
+    if(!ends.has(k))ends.set(k,{point:p,component:sourceComponent,lineId:line.id,incident:[]});
+    ends.get(k).incident.push(incident);
+   }
+  }
+  function isUnqualifiedCrossing(item,foot){
+   const dx=foot[0]-item.point[0],dy=foot[1]-item.point[1],length=Math.hypot(dx,dy);
+   if(length<.01)return true;
+   for(const [vx,vy] of item.incident){
+    const l=Math.hypot(vx,vy);
+    if(l<.01)continue;
+    const cosine=(dx*vx+dy*vy)/(length*l);
+    if(cosine>.985)return true; // Le raccord suit une rue déjà tracée :
+                              // son croisement intérieur n'est pas attesté.
+   }
+   return false;
   }
   const candidates=[],rejected=[];
   let tested=0;
@@ -174,6 +190,11 @@
    const selections=[...closestByComponent.values()].sort((a,b)=>a.length-b.length).slice(0,3);
    for(const c of selections){
     tested++;
+    if(isUnqualifiedCrossing(item,c.foot)){
+     rejected.push({roadId:c.roadId,attachedTo:c.attachedTo,
+      reason:'croisement sans sommet attesté',length:r(c.length)});
+     continue;
+    }
     if(!connectorClear(c.point,c.foot,city,geo)){
      rejected.push({roadId:c.roadId,attachedTo:c.attachedTo,
       reason:'eau, littoral ou limite urbaine',length:r(c.length)});
