@@ -8,11 +8,12 @@
  const carto=window.AreliaDisplay;if(!carto)throw Error('Règles de rendu indisponibles');
  const worldAPI=window.AreliaWorld;if(!worldAPI)throw Error('Moteur territorial indisponible');
  const urbanAPI=window.AreliaUrbanRouting;if(!urbanAPI)throw Error('Routage urbain indisponible');
+ const roadsAPI=window.AreliaRoadDetail;if(!roadsAPI)throw Error('Rendu détaillé des voies indisponible');
  const roadGapAPI=window.AreliaRoadGaps;if(!roadGapAPI)throw Error('Diagnostic des ruptures routières indisponible');
  const detailAPI=window.AreliaDetail;if(!detailAPI)throw Error('Détails géographiques indisponibles');
  const auditAPI=window.AreliaGeoAudit;if(!auditAPI)throw Error('Outil de diagnostic indisponible');
  const measureAPI=window.AreliaMeasure;if(!measureAPI)throw Error('Outil de mesure indisponible');
- const state={urbanRouter:null,urbanCityMap:null,gapReports:new Map(),gapFocus:null,markerNodes:new Map(),data:null,images:{},style:'game',layers:{proposed:false,gaps:false,details:true,shading:true,roads:true,rail:true,water:true,places:true,labels:true,urban:true,canals:true,zones:true,transit:true,metro:true,metroRail:true,relief:false,lowlands:false,infrastructure:false},category:'all',query:'',selected:null,city:null,secondaryData:null,secondaryCity:null,world:null,audit:null,measure:{active:false,points:[]},cityMode:false,metroMode:false,scale:1,baseScale:1,tx:0,ty:0,route:null,nationalGraph:null,metroRoute:null,roadGraph:null,railGraph:null,drag:null,raf:0,dpr:1};
+ const state={urbanRouter:null,urbanCityMap:null,gapReports:new Map(),gapFocus:null,junctionCache:new Map(),markerNodes:new Map(),data:null,images:{},style:'game',layers:{proposed:false,gaps:false,junctions:true,details:true,shading:true,roads:true,rail:true,water:true,places:true,labels:true,urban:true,canals:true,zones:true,transit:true,metro:true,metroRail:true,relief:false,lowlands:false,infrastructure:false},category:'all',query:'',selected:null,city:null,secondaryData:null,secondaryCity:null,world:null,audit:null,measure:{active:false,points:[]},cityMode:false,metroMode:false,scale:1,baseScale:1,tx:0,ty:0,route:null,nationalGraph:null,metroRoute:null,roadGraph:null,railGraph:null,drag:null,raf:0,dpr:1};
  const terrain=new Image(),plan=new Image();terrain.src='../assets/arelia-terrain.webp';plan.src='../assets/arelia-plan.webp';state.images={terrain,plan};
  const coord=([x,y])=>[x*state.scale+state.tx,y*state.scale+state.ty];
  const num=(n)=>Math.round(n).toLocaleString('fr-FR');
@@ -622,26 +623,21 @@
      ctx.restore();
      if(level>=40)drawCityMicro(city,paint,night);
    }
-   for(const road of city.avenues){stroke(road.points,night?'#7b7674':'#b9aa90',road.class==='avenue'?2.0:1.35);stroke(road.points,night?'#e5ded0':'#fdf8e9',road.class==='avenue'?1.47:.95);}
-   for(const road of city.portRoads||[]){stroke(road.points,night?'#786d69':'#a99c88',2.05);stroke(road.points,night?'#e2ddcc':'#f5eddb',1.25);}
+   for(const road of city.avenues)roadsAPI.paintRoad(ctx,road,night,level);
+   for(const road of city.portRoads||[])roadsAPI.paintRoad(ctx,{...road,class:'avenue'},night,level);
    if(state.layers.transit)for(const rail of city.portRail||[]){
       stroke(rail.points,night?'#253f48':'#fffaf1',1.5);
       ctx.save();ctx.setLineDash([1,.7]);stroke(rail.points,night?'#92bfc7':'#426e78',.68);ctx.restore();
    }
    if(level>=10){ctx.save();ctx.globalAlpha*=carto.fade(level,10,14);
-     for(const road of city.streets)stroke(road.points,night?'#d7d2c4':'#faf7ed',.57);
+     for(const road of city.streets)roadsAPI.paintRoad(ctx,road,night,level);
      ctx.restore();
    }
   }
   if(state.layers.water){
    for(const water of city.water){stroke(water.points,night?'#e2d5c1':'#faf3e4',water.width+.9);stroke(water.points,night?'#2a6177':'#5d9cb0',water.width);}
     for(const quay of city.quays||[])stroke(quay.points,night?'#d3c8ac':'#f2e2c9',.65);
-    for(const bridge of city.bridges||[]){
-       ctx.save();ctx.translate(bridge.x,bridge.y);ctx.rotate(bridge.angle);
-       ctx.fillStyle=night?'#545d63':'#a18d79';ctx.fillRect(-bridge.span/2,-bridge.width*.68,bridge.span,bridge.width*1.36);
-       ctx.fillStyle=night?'#d6c9b4':'#f4e6ce';ctx.fillRect(-bridge.span/2,-bridge.width*.48,bridge.span,bridge.width*.96);
-       ctx.restore();
-    }
+    for(const bridge of city.bridges||[])roadsAPI.paintBridge(ctx,bridge,night,level);
   }
   ctx.restore();
   if(state.layers.labels&&level>=9&&level<22){
@@ -703,14 +699,9 @@
        ctx.restore();
      }
     if(level>=9)for(const corridor of city.expressways||[]){
-      smooth(corridor.points,night?'#586773':'#af9d85',3.3);
-      smooth(corridor.points,night?'#c8c4b5':'#ead8b6',2.5);
+      roadsAPI.paintRoad(ctx,{...corridor,kind:'express'},night,level);
     }
-    for(const road of city.streets){
-      const w=road.class==='avenue'?1.5:road.class==='boulevard'?1.2:.68;
-      smooth(road.points,night?'#606d70':'#b5ab97',w+.35);
-      smooth(road.points,night?'#dfdbce':'#faf7ed',w);
-    }
+    for(const road of city.streets)roadsAPI.paintRoad(ctx,road,night,level);
     for(const site of city.landmarks||[])fill(site.polygon,night?'#c19a65':'#dbab74',night?'#d4b48c':'#ac835d',.23);
     if(level>=15){
       ctx.fillStyle=night?'#5d9073':'#4d8768';
@@ -723,13 +714,7 @@
       smooth(canal.points,night?'#c9c3b7':'#f8efe0',canal.width+1.05);
       smooth(canal.points,night?'#26677d':'#408fa9',canal.width);
     }
-    for(const bridge of city.bridges){
-      ctx.save();ctx.translate(bridge.x,bridge.y);ctx.rotate(bridge.angle||0);
-      const w=bridge.width||1.3,s=bridge.span||3;
-      ctx.fillStyle=night?'#565f66':'#958779';ctx.fillRect(-s/2,-w*.7,s,w*1.4);
-      ctx.fillStyle=night?'#cfbea5':'#f6e6cb';ctx.fillRect(-s/2,-w/2,s,w);
-      ctx.restore();
-    }
+    for(const bridge of city.bridges)roadsAPI.paintBridge(ctx,bridge,night,level);
   }
 
   if(state.layers.transit&&level>=12){
@@ -866,7 +851,7 @@
     // ils ne sont pas comptabilisés comme une route qualifiée.
     for(const link of state.route.access||[]){
       polyline([link.from,link.to],'#fffdf4',5,[5,3]);
-      polyline([link.from,link.to],'#ce6c45',2.8,[5,3]);
+      polyline([link.from,link.to],link.geometryClear===false?'#b7344f':'#ce6c45',2.8,[5,3]);
     }
     for(const point of [pieces[0].points[0],pieces.at(-1).points.at(-1)]){
       ctx.beginPath();ctx.arc(point[0],point[1],5/state.scale,0,2*Math.PI);
@@ -885,6 +870,29 @@
    for(const item of graph.connectors){
       if(!item.points.some(p=>p[0]>=tl[0]-5&&p[0]<=br[0]+5&&p[1]>=tl[1]-5&&p[1]<=br[1]+5))continue;
       polyline(item.points,state.style==='night'?'#b5aa91':'#b37650',2.1,[4,3]);
+   }
+   ctx.restore();
+ }
+ function drawRoadJunctions(){
+   const level=state.scale/state.baseScale;
+   if(!state.layers.junctions||!state.layers.urban||!state.cityMode||level<18)return;
+   const cityId=state.secondaryCity?.id||'vesone';
+   let nodes=state.junctionCache.get(cityId);
+   if(!nodes){
+     try{
+       const g=ensureUrbanRouter().localCity(cityId);
+       if(!g)return;
+       nodes=roadsAPI.junctions(g);state.junctionCache.set(cityId,nodes);
+     }catch(error){console.error(error);return;}
+   }
+   ctx.save();ctx.globalAlpha=.86;
+   const night=state.style==='night',radius=Math.min(.46,3.7/state.scale);
+   for(const junction of nodes){
+     const p=junction.point;
+     if(!nearViewport(p))continue;
+     ctx.beginPath();ctx.arc(p[0],p[1],radius,0,2*Math.PI);
+     ctx.fillStyle=night?'#c3c9b9':junction.tier==='express'?'#cdb48e':'#fffae9';ctx.fill();
+     ctx.strokeStyle=night?'#5a6a72':'#a6a08c';ctx.lineWidth=.075;ctx.stroke();
    }
    ctx.restore();
  }
@@ -916,7 +924,7 @@
  function draw(){if(!state.data)return;const [w,h]=getDim();if(!w||!h)return;ctx.setTransform(state.dpr,0,0,state.dpr,0,0);ctx.fillStyle=state.style==='night'?'#0a283b':'#c0d5d9';ctx.fillRect(0,0,w,h);ctx.save();ctx.setTransform(state.dpr*state.scale,0,0,state.dpr*state.scale,state.tx*state.dpr,state.ty*state.dpr);
   const img=state.style==='night'||state.style==='terrain'?terrain:plan;
   if(img.complete&&img.naturalWidth){if(state.style==='night')ctx.filter='brightness(.52) saturate(.65) hue-rotate(20deg)';else if(state.style==='game')ctx.filter='brightness(1.06) saturate(.86) contrast(.97)';ctx.drawImage(img,0,0,1500,1400);ctx.filter='none';}
-  drawNationalHillshade();markerRoadNodes();drawProposedConnectors();drawRoadGaps();drawRoute();drawMetroRoute();drawMeasure();ctx.restore();
+  drawNationalHillshade();markerRoadNodes();drawRoadJunctions();drawProposedConnectors();drawRoadGaps();drawRoute();drawMetroRoute();drawMeasure();ctx.restore();
   if(state.layers.labels && state.scale<state.baseScale*7){state.data.labels.forEach(p=>drawLabel(p.x,p.y,p.name,p.kind));}
   drawVillageLabels();drawRoadShields();drawUrbanRoadLabels();syncMarkers();scaleBar();}
  function scaleBar(){
@@ -1165,7 +1173,9 @@
        +(issues.coastalConflicts.length?' · '+issues.coastalConflicts.length+' passage(s) hors terre':'');
       const accessDistance=(answer.access||[]).reduce((s,p)=>s+p.distance,0);
       const access=document.createElement('p');access.className='maps-route-audit';
-      access.textContent=(answer.access||[]).length+' accès hors voirie qualifiée · '+num(accessDistance*state.data.meta.kilometres_per_unit)+' km indiqués en pointillés (non inclus dans le kilométrage routier).';
+      const blocked=(answer.access||[]).filter(a=>a.geometryClear===false).length;
+      access.textContent=(answer.access||[]).length+' accès hors voirie qualifiée · '+num(accessDistance*state.data.meta.kilometres_per_unit)+' km (non inclus dans le kilométrage routier).'+
+       (blocked?' ATTENTION : '+blocked+' accès géométriquement bloqué(s) par eau ou limite, en rouge vif.':' Les trajets hors réseau restent provisoires.');
       const caution=document.createElement('p');
       caution.textContent='Raccordements urbains et liaisons proposés, sans garantie de circulation ni de franchissement. Les tronçons interrompus ne sont pas reliés par des routes imaginaires. Ne pas utiliser pour une navigation réelle.';
       detail.append(title,intro,distance,info,proposed,inspection,access,caution);
