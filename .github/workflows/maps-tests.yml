@@ -32,6 +32,7 @@ jobs:
           node src/maps/world_validate.cjs
           node src/maps/national_route_validate.cjs
           node src/maps/urban_route_validate.cjs
+          node src/maps/road_gaps_validate.cjs
           node src/maps/geo_audit_validate.cjs
           node src/maps/measure_validate.cjs
       - name: Exercer les parcours et le rendu simulé

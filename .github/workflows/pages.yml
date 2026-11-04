@@ -48,6 +48,8 @@ jobs:
           node src/maps/national_route_validate.cjs
           node --check site/assets/arelia-urban-routing.js
           node src/maps/urban_route_validate.cjs
+          node --check site/assets/arelia-road-gaps.js
+          node src/maps/road_gaps_validate.cjs
       - name: Tester les mesures et leurs avertissements
         run: |
           node --check site/assets/arelia-measure.js

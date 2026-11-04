@@ -130,3 +130,10 @@
 
 /* Atlas 1.12 : diagnostic des ruptures locales, non canonique. */
 .maps-network-status{font-size:12px;line-height:1.65;color:#835341;border-top:1px solid #d5ddd3;padding-top:9px;margin-top:8px}
+
+/* Arélia Maps 1.13 — audit des fragments routiers géolocalisables. */
+.maps-road-gaps-note{font:500 11px/1.6 'DM Sans',Arial,sans-serif;color:#655b52;margin:8px 0}
+.maps-road-gaps-list{display:flex;flex-direction:column;gap:7px;max-height:min(310px,38vh);overflow-y:auto;padding:2px 0 8px}
+.maps-road-gap-item{display:block;text-align:left;white-space:normal;cursor:pointer;background:#fbf6ee;border:1px solid #d9c6b5;border-radius:7px;padding:9px 11px;color:#664b40;font:600 11px/1.45 'DM Sans',Arial,sans-serif}
+.maps-road-gap-item:hover,.maps-road-gap-item.selected{background:#e8dacf;border-color:#ae785b;color:#513c36}
+.maps-network-status{margin-bottom:7px}
